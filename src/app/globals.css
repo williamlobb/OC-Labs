@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ── OC Labs Design Tokens ────────────────────────────────────────────── */
+
+/* Status dot colours */
+.dot-active  { background: #1D9E75; } /* In progress */
+.dot-help    { background: #D85A30; } /* Needs help  */
+.dot-idea    { background: #BA7517; } /* Idea        */
+.dot-paused  { background: #888780; } /* Paused      */
+.dot-shipped { background: #534AB7; } /* Shipped     */
+
+/* Brand badge colours */
+.bb-oc      { background: #EEEDFE; color: #3C3489; } /* Omnia Collective  */
+.bb-onset   { background: #E1F5EE; color: #085041; } /* The Onset         */
+.bb-elysium { background: #E6F1FB; color: #0C447C; } /* Elysium Digital   */
+.bb-edge    { background: #FAECE7; color: #712B13; } /* EdgeRed           */
+.bb-bound   { background: #FAEEDA; color: #633806; } /* Bound Interactive */
+.bb-aid     { background: #FBEAF0; color: #72243E; } /* AI Decisions      */
