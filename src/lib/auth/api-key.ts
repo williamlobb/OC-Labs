@@ -19,11 +19,10 @@ export async function verifyApiKey(req: Request): Promise<string | null> {
   if (!apiKey) return null
 
   // Update last_used_at — fire and forget
-  supabaseAdmin
+  void supabaseAdmin
     .from('api_keys')
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', apiKey.id)
-    .then(() => {})
 
   return apiKey.user_id
 }
