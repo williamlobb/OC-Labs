@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // ---- mocks ----------------------------------------------------------------
 
-const mockUpdateSession = vi.fn()
+const { mockUpdateSession } = vi.hoisted(() => ({ mockUpdateSession: vi.fn() }))
 
 vi.mock('@/lib/supabase/middleware', () => ({
   updateSession: mockUpdateSession,

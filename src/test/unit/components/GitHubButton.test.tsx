@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event'
 
 // ---- mocks ----------------------------------------------------------------
 
-const mockSignInWithOAuth = vi.fn()
+const { mockSignInWithOAuth } = vi.hoisted(() => ({ mockSignInWithOAuth: vi.fn() }))
 
 vi.mock('@/lib/supabase/client', () => ({
   supabase: {

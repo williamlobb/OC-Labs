@@ -8,8 +8,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ---- mocks ----------------------------------------------------------------
 
-const mockSignUp = vi.fn()
-const mockUpsertUser = vi.fn()
+const { mockSignUp } = vi.hoisted(() => ({ mockSignUp: vi.fn() }))
+const { mockUpsertUser } = vi.hoisted(() => ({ mockUpsertUser: vi.fn() }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
