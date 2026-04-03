@@ -27,6 +27,10 @@ vi.mock('@/lib/auth/upsert-user', () => ({
   upsertUser: mockUpsertUser,
 }))
 
+vi.mock('@/lib/cowork/sync', () => ({
+  syncCoWorkProfile: vi.fn().mockResolvedValue({ synced: true }),
+}))
+
 // ---- module under test ----------------------------------------------------
 import { GET } from '@/app/auth/callback/route'
 

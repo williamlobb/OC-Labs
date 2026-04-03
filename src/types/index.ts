@@ -32,6 +32,7 @@ export interface Project {
   id: string
   title: string
   summary?: string
+  description?: string
   status: ProjectStatus
   brand?: string
   owner_id?: string
@@ -39,6 +40,7 @@ export interface Project {
   skills_needed: string[]
   needs_help: boolean
   vote_count: number
+  notion_url?: string
   created_at: string
   updated_at: string
 }

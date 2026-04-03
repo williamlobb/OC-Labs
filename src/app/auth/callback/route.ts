@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { upsertUser } from '@/lib/auth/upsert-user'
 import { isSafeRedirect } from '@/lib/utils/is-safe-redirect'
+import { syncCoWorkProfile } from '@/lib/cowork/sync'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = request.nextUrl
@@ -29,6 +30,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       await upsertUser(user as User)
     } catch {
       // Profile setup failure should not block auth — user can be reconciled later
+    }
+
+    // Sync CoWork profile fields — fire and forget, never blocks login
+    if (user.email) {
+      syncCoWorkProfile(user.id, user.email).catch((err) =>
+        console.error(JSON.stringify({ event: 'cowork_sync_error', error: String(err) }))
+      )
     }
   }
 

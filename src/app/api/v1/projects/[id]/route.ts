@@ -1,0 +1,94 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import type { ProjectStatus } from '@/types'
+
+const VALID_STATUSES: ProjectStatus[] = ['Idea', 'In progress', 'Needs help', 'Paused', 'Shipped']
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params
+  const supabase = await createServerSupabaseClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { data: existing } = await supabase
+    .from('projects')
+    .select('owner_id')
+    .eq('id', id)
+    .single()
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+  if (existing.owner_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const title = typeof body.title === 'string' ? body.title.trim() : undefined
+  if (title !== undefined && !title) {
+    return NextResponse.json({ error: 'title cannot be empty' }, { status: 400 })
+  }
+
+  const updates: Record<string, unknown> = {}
+  if (title) updates.title = title
+  if (typeof body.summary === 'string') updates.summary = body.summary
+  if (VALID_STATUSES.includes(body.status as ProjectStatus)) updates.status = body.status
+  if (Array.isArray(body.skills_needed)) updates.skills_needed = body.skills_needed
+  if (Array.isArray(body.github_repos)) updates.github_repos = body.github_repos
+  if (typeof body.notion_url === 'string') updates.notion_url = body.notion_url
+
+  const { data: project, error } = await supabase
+    .from('projects')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error || !project) {
+    return NextResponse.json({ error: error?.message ?? 'Update failed' }, { status: 500 })
+  }
+
+  return NextResponse.json(project)
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params
+  const supabase = await createServerSupabaseClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { data: existing } = await supabase
+    .from('projects')
+    .select('owner_id')
+    .eq('id', id)
+    .single()
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+  if (existing.owner_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  await supabase.from('projects').delete().eq('id', id)
+
+  return new NextResponse(null, { status: 204 })
+}

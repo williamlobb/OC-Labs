@@ -4,6 +4,11 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  css: {
+    postcss: {
+      plugins: [],
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
@@ -21,6 +26,7 @@ export default defineConfig({
         'src/app/(auth)/login/LoginFormInner.tsx',
         'src/app/(auth)/signup/SignupFormInner.tsx',
         'src/components/auth/GitHubButton.tsx',
+        'src/components/projects/ProjectCard.tsx',
         'middleware.ts',
       ],
       thresholds: {

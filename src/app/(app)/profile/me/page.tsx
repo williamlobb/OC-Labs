@@ -1,33 +1,32 @@
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ProfileCard } from '@/components/profile/ProfileCard'
+import { EditProfileForm } from '@/components/profile/EditProfileForm'
 import type { ProjectSummary, ProjectStatus } from '@/types'
 
-interface PageProps {
-  params: Promise<{ id: string }>
-}
-
-export default async function PublicProfilePage({ params }: PageProps) {
-  const { id } = await params
+export default async function MyProfilePage() {
   const supabase = await createServerSupabaseClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('users')
     .select('*')
-    .eq('id', id)
+    .eq('id', user.id)
     .single()
 
-  if (!profile) notFound()
+  if (!profile) redirect('/login')
 
   const { data: skills } = await supabase
     .from('user_skills')
     .select('skill')
-    .eq('user_id', id)
+    .eq('user_id', user.id)
 
   const { data: memberships } = await supabase
     .from('project_members')
     .select('project_id, role, projects(id, title, status, brand)')
-    .eq('user_id', id)
+    .eq('user_id', user.id)
 
   type ProjectRecord = { id: string; title: string; status: ProjectStatus; brand: string }
   type MembershipRow = {
@@ -43,8 +42,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
     })
     .filter((p): p is ProjectRecord => p !== null)
 
+  const skillList = (skills ?? []).map((s: { skill: string }) => s.skill)
+
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-10">
       <ProfileCard
         id={profile.id}
         name={profile.name}
@@ -53,13 +54,27 @@ export default async function PublicProfilePage({ params }: PageProps) {
         profilePhotoUrl={profile.profile_photo_url ?? undefined}
         linkedinUrl={profile.linkedin_url ?? ''}
         githubUsername={profile.github_username ?? undefined}
-        skills={(skills ?? []).map((s: { skill: string }) => s.skill)}
+        skills={skillList}
         projects={projects}
         voteCount={0}
         activityScore={0}
         badges={[]}
         coworkSyncedAt={profile.cowork_synced_at ?? undefined}
       />
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          Edit profile
+        </h2>
+        <p className="mb-4 text-xs text-zinc-500">
+          Name, title, brand, and photo are managed by CoWork and cannot be edited here.
+        </p>
+        <EditProfileForm
+          initialLinkedinUrl={profile.linkedin_url ?? ''}
+          initialGithubUsername={profile.github_username ?? ''}
+          initialSkills={skillList}
+        />
+      </section>
     </div>
   )
 }
