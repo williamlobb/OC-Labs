@@ -146,7 +146,7 @@ Answer questions about this project concisely. Use the context above to ground y
             role: 'assistant',
             content: fullResponse,
             author_id: null,
-          }).catch(() => {})
+          })
         }
         controller.error(err)
       }
