@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ---- mocks ----------------------------------------------------------------
 
-const mockSignInWithPassword = vi.fn()
+const { mockSignInWithPassword } = vi.hoisted(() => ({ mockSignInWithPassword: vi.fn() }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({

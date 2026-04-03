@@ -11,7 +11,7 @@
  * (i.e. the URL has no hostname component when parsed against a dummy base).
  */
 import { describe, it, expect } from 'vitest'
-import { isSafeRedirect } from '@/lib/utils/isSafeRedirect'
+import { isSafeRedirect } from '@/lib/utils/is-safe-redirect'
 
 describe('isSafeRedirect', () => {
   describe('safe inputs — relative paths', () => {

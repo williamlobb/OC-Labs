@@ -44,7 +44,7 @@ describe('SignupFormInner', () => {
     it('does not render an error message on initial render', () => {
       render(<SignupFormInner />)
       // The error paragraph is only rendered when state.error is truthy
-      expect(screen.queryByText(/./)).not.toHaveClass('text-red-600')
+      expect(screen.queryByRole('paragraph')).not.toBeInTheDocument()
     })
 
     it('password input enforces minLength=6', () => {
@@ -65,6 +65,9 @@ describe('SignupFormInner', () => {
       const user = userEvent.setup()
       render(<SignupFormInner />)
 
+      await user.type(screen.getByLabelText("Name"), "Test User")
+      await user.type(screen.getByLabelText("Email"), "test@example.com")
+      await user.type(screen.getByLabelText("Password"), "password123")
       await user.click(screen.getByRole('button', { name: 'Create account' }))
 
       expect(await screen.findByText('Name is required.')).toBeInTheDocument()

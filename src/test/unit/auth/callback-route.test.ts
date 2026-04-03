@@ -10,9 +10,9 @@ import { NextRequest } from 'next/server'
 
 // ---- mocks ----------------------------------------------------------------
 
-const mockExchangeCode = vi.fn()
-const mockGetUser = vi.fn()
-const mockUpsertUser = vi.fn()
+const { mockExchangeCode } = vi.hoisted(() => ({ mockExchangeCode: vi.fn() }))
+const { mockGetUser } = vi.hoisted(() => ({ mockGetUser: vi.fn() }))
+const { mockUpsertUser } = vi.hoisted(() => ({ mockUpsertUser: vi.fn() }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
