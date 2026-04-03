@@ -12,6 +12,7 @@ export default async function ChatPage({ params }: PageProps) {
   const supabase = await createServerSupabaseClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return <div className="py-16 text-center text-sm text-zinc-500">Unauthorized.</div>
 
   const [{ data: project }, { data: membership }] = await Promise.all([
     supabase.from('projects').select('id, title').eq('id', id).single(),
@@ -19,7 +20,7 @@ export default async function ChatPage({ params }: PageProps) {
       .from('project_members')
       .select('role')
       .eq('project_id', id)
-      .eq('user_id', user?.id ?? '')
+      .eq('user_id', user.id)
       .maybeSingle(),
   ])
 

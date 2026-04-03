@@ -25,8 +25,33 @@ export async function PATCH(
   const body = await req.json()
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-  if (body.status !== undefined) updates.status = body.status
-  if (body.assignee_id !== undefined) updates.assignee_id = body.assignee_id
+  const VALID_STATUSES = ['todo', 'in_progress', 'done', 'blocked'] as const
+  if (body.status !== undefined) {
+    if (!VALID_STATUSES.includes(body.status)) {
+      return NextResponse.json(
+        { error: `status must be one of: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 }
+      )
+    }
+    updates.status = body.status
+  }
+
+  if (body.assignee_id !== undefined) {
+    // Verify the assignee is a member of this project (or allow null to unassign)
+    if (body.assignee_id !== null) {
+      const { data: assigneeMembership } = await supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', id)
+        .eq('user_id', body.assignee_id)
+        .maybeSingle()
+      if (!assigneeMembership) {
+        return NextResponse.json({ error: 'assignee_id is not a project member' }, { status: 400 })
+      }
+    }
+    updates.assignee_id = body.assignee_id
+  }
+
   if (body.assigned_to_agent !== undefined) updates.assigned_to_agent = body.assigned_to_agent
   if (body.title !== undefined) updates.title = body.title
   if (body.body !== undefined) updates.body = body.body

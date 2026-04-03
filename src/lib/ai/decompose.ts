@@ -15,6 +15,17 @@ interface ContextBlock {
   block_type: string
 }
 
+function isValidDecomposedTask(item: unknown): item is DecomposedTask {
+  if (typeof item !== 'object' || item === null) return false
+  const t = item as Record<string, unknown>
+  return (
+    typeof t.title === 'string' && t.title.trim().length > 0 &&
+    typeof t.body === 'string' && t.body.trim().length > 0 &&
+    t.status === 'todo' &&
+    typeof t.assigned_to_agent === 'boolean'
+  )
+}
+
 export async function decomposeProject(
   title: string,
   summary: string,
@@ -54,7 +65,10 @@ Return ONLY valid JSON, no markdown, no explanation. Example:
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
     const parsed = JSON.parse(text)
     if (!Array.isArray(parsed)) return []
-    return parsed as DecomposedTask[]
+    // Validate each element has the required fields with the correct types before
+    // inserting into the DB — malformed LLM output would otherwise cause constraint
+    // violations or silently insert null values.
+    return parsed.filter(isValidDecomposedTask)
   } catch {
     return []
   }

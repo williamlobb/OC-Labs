@@ -23,14 +23,22 @@ export async function POST(
     userId = user.id
   }
 
-  // Verify project exists
-  const { data: project } = await supabaseAdmin
-    .from('projects')
-    .select('id')
-    .eq('id', id)
-    .single()
+  // Verify project exists and that the caller is a member (owner or contributor)
+  const [{ data: project }, { data: membership }] = await Promise.all([
+    supabaseAdmin.from('projects').select('id').eq('id', id).single(),
+    supabaseAdmin
+      .from('project_members')
+      .select('role')
+      .eq('project_id', id)
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ])
 
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  if (!membership || !['owner', 'contributor'].includes(membership.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let body: Record<string, unknown>
   try {

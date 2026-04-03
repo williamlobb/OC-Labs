@@ -26,9 +26,11 @@ export function ProjectActions({
 
   async function handleVote() {
     if (votePending) return
+    // Capture pre-toggle state so revert branches use the correct direction
+    const wasVoted = hasVoted
     // Optimistic update
-    setHasVoted((v) => !v)
-    setVoteCount((c) => (hasVoted ? c - 1 : c + 1))
+    setHasVoted(!wasVoted)
+    setVoteCount((c) => (wasVoted ? c - 1 : c + 1))
     setVotePending(true)
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/vote`, { method: 'POST' })
@@ -38,12 +40,12 @@ export function ProjectActions({
         setHasVoted(data.hasVoted)
       } else {
         // Revert on error
-        setHasVoted((v) => !v)
-        setVoteCount((c) => (hasVoted ? c + 1 : c - 1))
+        setHasVoted(wasVoted)
+        setVoteCount((c) => (wasVoted ? c + 1 : c - 1))
       }
     } catch {
-      setHasVoted((v) => !v)
-      setVoteCount((c) => (hasVoted ? c + 1 : c - 1))
+      setHasVoted(wasVoted)
+      setVoteCount((c) => (wasVoted ? c + 1 : c - 1))
     } finally {
       setVotePending(false)
     }
