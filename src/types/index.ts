@@ -73,6 +73,53 @@ export interface UserSkill {
   source: string
 }
 
+export type BlockType = 'general' | 'architecture' | 'decision' | 'constraint'
+
+export interface ContextBlock {
+  id: string
+  project_id: string
+  author_id: string
+  title: string
+  body: string
+  block_type: BlockType
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'blocked'
+
+export interface Task {
+  id: string
+  project_id: string
+  title: string
+  body?: string
+  status: TaskStatus
+  assignee_id?: string
+  assigned_to_agent: boolean
+  depends_on: string[]
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatMessage {
+  id: string
+  project_id: string
+  role: 'user' | 'assistant'
+  content: string
+  author_id?: string
+  created_at: string
+}
+
+export interface ApiKey {
+  id: string
+  user_id: string
+  label?: string
+  created_at: string
+  last_used_at?: string
+}
+
 // Component prop interfaces
 
 export interface ProjectCardProps {

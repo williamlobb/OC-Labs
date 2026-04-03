@@ -25,6 +25,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             >
               Profile
             </Link>
+            <Link
+              href="/settings/api-keys"
+              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+            >
+              Settings
+            </Link>
             <SignOutButton />
           </nav>
         </div>
