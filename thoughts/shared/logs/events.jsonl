@@ -1,0 +1,54 @@
+{"ts":"2026-04-02T15:00:00Z","event":"handover","from":"cowork","to":"claude-code","artifact":"thoughts/shared/research/2026-04-02-1500-infrastructure-complete.md","note":"Infrastructure complete. All env vars set. 10 draft PRs open on develop. Ready for Phase 1."}
+{"ts": "2026-04-02T10:22:23Z", "event": "session_start", "branch": "feat/pr-01-auth-shell", "last_commit": "1e76118"}
+{"ts": "2026-04-02T10:28:07Z", "event": "phase_start", "phase": "plan"}
+{"ts": "2026-04-02T10:32:43Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:32:49Z", "event": "phase_end", "phase": "plan", "artifact": "/Users/williamlobb/Documents/Repos/OC-Labs/thoughts/shared/plans/pr-01-auth-shell.md"}
+{"ts": "2026-04-02T10:33:00Z", "event": "session_end", "uncommitted_files": 5}
+{"ts": "2026-04-02T10:54:59Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:55:08Z", "event": "phase_start", "phase": "implement"}
+{"ts": "2026-04-02T10:55:40Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:55:44Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:55:49Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:55:55Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:55:58Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:59:31Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:59:40Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:59:50Z", "event": "post_edit"}
+{"ts": "2026-04-02T10:59:59Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:01:01Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:03:26Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:03:30Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:04:35Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:04:48Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:04:53Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:06:32Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:06:36Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:06:41Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:07:39Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:09:48Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:09:49Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:09:50Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:09:50Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:09:51Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:11:33Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:11:37Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:11:41Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:11:54Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:12:13Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:12:32Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:12:49Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:13:20Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:13:42Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:13:57Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:14:16Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:14:33Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:14:55Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:15:23Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:15:36Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:16:19Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:16:23Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:16:28Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:16:32Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:17:06Z", "event": "phase_end", "phase": "implement", "result": "COMPLETE"}
+{"ts": "2026-04-02T11:17:21Z", "event": "session_end", "uncommitted_files": 25}
+{"ts": "2026-04-02T11:58:01Z", "event": "guard_block", "tool": "Write", "path": "/Users/williamlobb/Documents/Repos/OC-Labs/CLAUDE.md"}

@@ -18,19 +18,19 @@ export async function fetchRepoMetadata(repoUrl: string): Promise<RepoMetadata |
   const [, owner, repo] = match
 
   try {
+    const authHeader = process.env.GITHUB_TOKEN
+      ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+      : {}
+
     const [repoRes, readmeRes] = await Promise.allSettled([
       fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-        headers: process.env.GITHUB_CLIENT_ID
-          ? { Authorization: `token ${process.env.GITHUB_CLIENT_SECRET}` }
-          : {},
+        headers: authHeader,
         next: { revalidate: 3600 },
       }),
       fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
         headers: {
           Accept: 'application/vnd.github.raw',
-          ...(process.env.GITHUB_CLIENT_ID
-            ? { Authorization: `token ${process.env.GITHUB_CLIENT_SECRET}` }
-            : {}),
+          ...authHeader,
         },
         next: { revalidate: 3600 },
       }),
