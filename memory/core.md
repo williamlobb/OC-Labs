@@ -116,5 +116,6 @@ npx tsc --noEmit   — type check
 - cookies() from next/headers is async in Next.js 15/16 — must await cookies()
 - AGENTS.md enforces reading node_modules/next/dist/docs/ — directory does not exist in this repo; skip that step
 - CoWork API not yet live — fetchCoWorkProfile() returns null gracefully when creds missing
-- No .env.local exists — npm run build fails without NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY
+- .env.local exists (created by CoWork). npm run build requires NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY
+- Slack webhook URLs must NOT be committed to memory/core.md — GitHub secret scanning blocks push. Reference env var names only.
 - middleware.ts exempts /signup and /login and /auth/* — all other routes require auth
