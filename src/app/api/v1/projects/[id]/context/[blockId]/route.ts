@@ -30,6 +30,11 @@ export async function PUT(
   if (blockBody?.trim()) updates.body = blockBody.trim()
   if (block_type) updates.block_type = block_type
 
+  // Reject requests that carry no meaningful changes
+  if (Object.keys(updates).length === 1) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  }
+
   // Increment version on edit
   const { data: existing } = await supabase
     .from('context_blocks')

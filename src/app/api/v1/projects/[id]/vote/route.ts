@@ -41,13 +41,19 @@ export async function POST(
   let voteCount: number
 
   if (existingVote) {
-    // Remove vote
+    // Remove vote.
+    // NOTE: The delete and the RPC counter decrement are two separate round-trips
+    // and are not atomic. A concurrent vote between them can cause vote_count to
+    // diverge from the actual rows in the votes table. The correct fix is to move
+    // both the insert/delete and the counter update into the RPC itself so they
+    // execute in a single transaction. Tracked: fix increment/decrement RPCs to
+    // also perform the votes row mutation atomically.
     await supabase.from('votes').delete().eq('project_id', id).eq('user_id', user.id)
     const { data: updated } = await supabase.rpc('decrement_vote_count', { project_id: id })
     voteCount = updated ?? project.vote_count - 1
     hasVoted = false
   } else {
-    // Add vote
+    // Add vote — same atomicity caveat as above.
     await supabase.from('votes').insert({ project_id: id, user_id: user.id })
     const { data: updated } = await supabase.rpc('increment_vote_count', { project_id: id })
     voteCount = updated ?? project.vote_count + 1

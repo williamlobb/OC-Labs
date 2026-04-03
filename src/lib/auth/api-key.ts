@@ -18,12 +18,14 @@ export async function verifyApiKey(req: Request): Promise<string | null> {
 
   if (!apiKey) return null
 
-  // Update last_used_at — fire and forget
+  // Update last_used_at — fire and forget, but log failures for audit visibility
   supabaseAdmin
     .from('api_keys')
     .update({ last_used_at: new Date().toISOString() })
     .eq('id', apiKey.id)
-    .then(() => {})
+    .then(({ error }) => {
+      if (error) console.error('api-key last_used_at update failed:', error.message)
+    })
 
   return apiKey.user_id
 }
