@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import type { User } from '@supabase/supabase-js'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { upsertUser } from '@/lib/auth/upsert-user'
 import { isSafeRedirect } from '@/lib/utils/is-safe-redirect'
 import { syncCoWorkProfile } from '@/lib/cowork/sync'
@@ -16,7 +16,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  const supabase = await createServerSupabaseClient()
+  // Build the redirect response first so cookies can be attached to it.
+  // createServerClient in a Route Handler must write cookies onto the
+  // outgoing response — not into next/headers — otherwise the session
+  // cookie is lost before the redirect lands.
+  const response = NextResponse.redirect(new URL(destination, request.url))
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+
   const { error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
@@ -29,10 +52,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     try {
       await upsertUser(user as User)
     } catch {
-      // Profile setup failure should not block auth — user can be reconciled later
+      // upsert failure does not block login — user reconciled on next request
     }
 
-    // Sync CoWork profile fields — fire and forget, never blocks login
     if (user.email) {
       syncCoWorkProfile(user.id, user.email).catch((err) =>
         console.error(JSON.stringify({ event: 'cowork_sync_error', error: String(err) }))
@@ -40,5 +62,5 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.redirect(new URL(destination, request.url))
+  return response
 }
