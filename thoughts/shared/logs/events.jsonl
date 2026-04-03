@@ -52,3 +52,12 @@
 {"ts": "2026-04-02T11:17:06Z", "event": "phase_end", "phase": "implement", "result": "COMPLETE"}
 {"ts": "2026-04-02T11:17:21Z", "event": "session_end", "uncommitted_files": 25}
 {"ts": "2026-04-02T11:58:01Z", "event": "guard_block", "tool": "Write", "path": "/Users/williamlobb/Documents/Repos/OC-Labs/CLAUDE.md"}
+{"ts": "2026-04-02T11:58:47Z", "event": "post_edit"}
+{"ts": "2026-04-02T11:58:54Z", "event": "checkpoint", "commit": "a71b8f0", "files_changed": 38, "tests": "PASS"}
+{"ts": "2026-04-02T11:59:12Z", "event": "session_end", "uncommitted_files": 4}
+{"ts": "2026-04-03T04:24:01Z", "event": "post_edit"}
+{"ts": "2026-04-03T04:24:07Z", "event": "post_edit"}
+{"ts": "2026-04-03T04:24:18Z", "event": "save_session", "action": "manual", "phase": "post-pr01"}
+{"ts": "2026-04-03T04:24:20Z", "event": "session_end", "uncommitted_files": 5}
+{"ts": "2026-04-03T04:43:52Z", "event": "session_start", "branch": "feat/pr-01-auth-shell", "last_commit": "a71b8f0"}
+{"ts": "2026-04-03T04:44:05Z", "event": "session_end", "uncommitted_files": 14}
