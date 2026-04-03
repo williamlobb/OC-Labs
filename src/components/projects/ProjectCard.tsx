@@ -1,24 +1,9 @@
 'use client'
 
 import { cn } from '@/lib/utils/cn'
-import type { ProjectCardProps, ProjectStatus } from '@/types'
-
-const STATUS_STYLES: Record<ProjectStatus, string> = {
-  'Idea': 'bg-blue-100 text-blue-700',
-  'In progress': 'bg-amber-100 text-amber-700',
-  'Needs help': 'bg-red-100 text-red-700',
-  'Paused': 'bg-zinc-100 text-zinc-500',
-  'Shipped': 'bg-green-100 text-green-700',
-}
-
-function getInitials(name: string): string {
-  if (!name.trim()) return '?'
-  const parts = name.trim().split(/\s+/)
-  return parts
-    .slice(0, 2)
-    .map((p) => p[0].toUpperCase())
-    .join('')
-}
+import { StatusBadge } from '@/components/ui/Badge'
+import { Avatar } from '@/components/ui/Avatar'
+import type { ProjectCardProps } from '@/types'
 
 export function ProjectCard(props: ProjectCardProps) {
   const {
@@ -48,14 +33,7 @@ export function ProjectCard(props: ProjectCardProps) {
     >
       {/* Header row */}
       <div className="flex items-center justify-between">
-        <span
-          className={cn(
-            'rounded-full px-2.5 py-0.5 text-xs font-medium',
-            STATUS_STYLES[status]
-          )}
-        >
-          {status}
-        </span>
+        <StatusBadge status={status} />
         <span className="text-xs text-zinc-500">{brand}</span>
       </div>
 
@@ -95,12 +73,7 @@ export function ProjectCard(props: ProjectCardProps) {
       <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 dark:border-zinc-800">
         {/* Owner */}
         <div className="flex items-center">
-          <div
-            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium"
-            style={{ backgroundColor: owner.avatarColor.bg, color: owner.avatarColor.fg }}
-          >
-            {getInitials(owner.name)}
-          </div>
+          <Avatar userId={owner.id} name={owner.name} size="sm" />
           <span className="ml-2 text-sm text-zinc-600">{owner.name}</span>
         </div>
 

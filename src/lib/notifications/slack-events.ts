@@ -16,7 +16,7 @@ export async function notifyNewProject(
   projectId: string,
   projectTitle: string,
   ownerName: string,
-  appUrl = 'https://labs.theoc.ai'
+  appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://oclabs.space'
 ): Promise<void> {
   const webhookUrl = process.env.SLACK_WEBHOOK_PROJECTS
   if (!webhookUrl) return

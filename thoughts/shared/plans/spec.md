@@ -1,344 +1,167 @@
-# OC Labs — Full Build Specification
+# OC Labs — Phase 1 Fixes + Phase 2 Build Specification
 
-**Date:** 2026-04-03  
-**Status:** Draft — awaiting user confirmation  
-**Scope:** Pre-flight hygiene + Auth fix + Phase 1 (PRs 02–10) + Phase 2 (AI capabilities)  
-**Research source:** `thoughts/shared/research/OC labs  extended capability research.md`
-
----
-
-## Problem Statement
-
-OC Labs is the Omnia Collective's internal platform for project discovery, collaboration, and capability building. PR-01 (auth) was implemented but the app has a 404 after login due to a missing layout file. The branch structure is messy and needs cleaning before further work begins. Once hygiene is done, PRs 02–10 complete the MVP, and Phase 2 adds AI-native capabilities that make OC Labs a context engineering and agentic development hub for citizen engineers across the collective.
+**Date:** 2026-04-03
+**Status:** Ready for implementation
+**Scope:** Phase 1 gap fixes + Phase 2 (PRs 11–13) complete
 
 ---
 
-## Step 0 — Pre-flight: Branch Hygiene
+## Current State (from audit)
 
-### Current branch state (14 branches)
-
-| Branch | Status | Action |
-|--------|--------|--------|
-| `main` | Production — has commits not in develop (research uploads, memory files, config) | **Keep — becomes the only integration branch** |
-| `develop` | Has 4 commits not in main (auth shell implementation). 9 commits behind main. | **Merge into main, then delete** |
-| `docs/agent-context` | Fully merged into main | **Delete** |
-| `feat/pr-01-auth-shell` | Fully merged into main | **Delete** |
-| `phase/1-mvp` | Fully merged into main | **Delete** |
-| `feat/pr-02` through `feat/pr-10` | Stub only — 1 commit each, not merged | **Keep — implementation targets** |
-
-### Branch strategy going forward
-
-**`main` is the only long-lived branch.** No `develop`. Feature branches (`feat/pr-XX-*`) are created from `main`, implemented, and merged back to `main` via PR. Vercel deploys `main` to production automatically.
-
-### Hygiene execution order
-
-1. Merge `develop` into `main` (captures the 4 auth commits not yet in main)
-2. Delete `develop`, `docs/agent-context`, `feat/pr-01-auth-shell`, `phase/1-mvp`
-3. Rebase all `feat/pr-02` through `feat/pr-10` branches onto the new `main` HEAD
-4. Update all open PRs on GitHub to target `main` instead of `develop`
-5. Update `AGENTS.md` branch table to remove `develop`
-
-### Acceptance criteria — hygiene complete
-- [ ] `git branch -r` shows only `main` + 9 `feat/pr-*` branches
-- [ ] All open PRs on GitHub target `main`
-- [ ] `AGENTS.md` branch table updated
-- [ ] `main` contains all commits from former `develop`
+The app is live at oclabs.space. Authenticated users can browse the discover board, view project detail pages, vote, raise hand, create/edit projects, and view/edit their profile. The following gaps remain.
 
 ---
 
-## Step 1 — Auth Fix: `(app)/layout.tsx` Missing
+## Part A — Phase 1 Fixes
 
-### Root cause
+### A1 — Vote/Raise Hand on project detail page are HTML form POSTs (not interactive)
 
-After login, the user is redirected to `/discover`. This route lives inside `src/app/(app)/`. The `(app)` route group has **no `layout.tsx`** — it was specified in the PR-01 plan but never created. Next.js cannot render any route inside `(app)/` without it, producing a 404.
+**Problem:** The detail page uses `<form method="POST">` which causes a full page reload and navigates to the raw API JSON response. The card uses optimistic client-side handlers correctly; the detail page does not.
 
-### Fix
-
-Create `src/app/(app)/layout.tsx` — a minimal authenticated shell with top nav and sign-out.
-
-Also needs: `src/components/auth/SignOutButton.tsx` — a `'use client'` component that calls `supabase.auth.signOut()` and redirects to `/login`.
-
-### Acceptance criteria — auth fix complete
-- [ ] Visiting `/login` with valid credentials redirects to `/discover` without 404
-- [ ] `/discover` renders (stub content is fine at this stage)
-- [ ] Nav bar visible: OC Labs wordmark, Profile link, Sign Out button
-- [ ] Sign Out clears session and redirects to `/login`
-- [ ] `npx tsc --noEmit` passes
-- [ ] `npm run lint` passes
-- [ ] Deployed to `main` — Vercel confirms no 404
-
----
-
-## Phase 1 — Complete the MVP (PRs 02–10)
-
-All PRs branch from `main`, merge back to `main`. Vercel deploys on merge.
-
----
-
-### PR-02 — Project Card Component
-**Branch:** `feat/pr-02-project-card`  
-**Depends on:** Step 1 (auth fix)
-
-**Files to create:**
-- `src/components/projects/ProjectCard.tsx`
-- `src/components/ui/Avatar.tsx` — initials avatar using `avatarColor(userId)`
-- `src/components/ui/Badge.tsx` — status badge
-- `src/components/ui/SkeletonCard.tsx` — loading skeleton
+**Fix:** Replace the form elements in `src/app/(app)/projects/[id]/page.tsx` with a `'use client'` wrapper component `src/components/projects/ProjectActions.tsx` that mirrors the card's optimistic vote/join behaviour.
 
 **Acceptance criteria:**
-- [ ] Card renders: title, brand, status badge, summary excerpt (120 chars), skills chips, owner avatar, vote count, member count
-- [ ] Vote button togglable with optimistic UI (`useOptimistic`)
-- [ ] Raise Hand button toggles with optimistic UI
-- [ ] `needsHelp=true` shows a visible indicator
-- [ ] Clicking card navigates to `/projects/[id]`
-- [ ] Skeleton renders when `loading=true`
-- [ ] Responsive: 1-col mobile, 2-col tablet, 3-col desktop
+- [ ] Clicking Vote on detail page toggles state without page reload
+- [ ] Vote count updates optimistically
+- [ ] Clicking Raise Hand toggles without page reload
+- [ ] Cannot vote/raise hand on own project (button hidden for owner)
 - [ ] `npx tsc --noEmit` passes, `npm run lint` passes
 
 ---
 
-### PR-03 — Discovery Board
-**Branch:** `feat/pr-03-discovery-board`  
-**Depends on:** PR-02
+### A2 — APP_URL hardcoded to wrong domain
 
-**Files to create:**
-- `src/app/(app)/discover/page.tsx` — Server Component, fetches projects ordered by `vote_count DESC`
-- `src/components/board/BoardToolbar.tsx` — search input + filter chips
-- `src/components/board/FilterChips.tsx` — status filter chips
-- `src/components/board/FilterableBoard.tsx` — Client Component for filter/search state
+**Problem:** `src/lib/email/digest.ts` and `src/lib/notifications/slack-events.ts` both hardcode `https://labs.theoc.ai`. Production is `https://oclabs.space`.
+
+**Fix:** Read from `process.env.NEXT_PUBLIC_APP_URL` with fallback to `https://oclabs.space`. Add `NEXT_PUBLIC_APP_URL=https://oclabs.space` to `.env.local.example`.
 
 **Acceptance criteria:**
-- [ ] Server Component fetches all projects from Supabase on load
-- [ ] Grid layout: 1/2/3-col responsive
-- [ ] Filter by status (all `ProjectStatus` values)
-- [ ] Debounced search (300ms) by title, summary, brand
-- [ ] Empty state when no projects match
-- [ ] Pagination: 20 projects per page
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
+- [ ] Both files use `process.env.NEXT_PUBLIC_APP_URL ?? 'https://oclabs.space'`
+- [ ] `.env.local.example` includes `NEXT_PUBLIC_APP_URL`
 
 ---
 
-### PR-04 — Project Detail Page
-**Branch:** `feat/pr-04-project-detail`  
-**Depends on:** PR-02
+### A3 — `notion_url` missing from DB schema
 
-**Files to create:**
-- `src/app/(app)/projects/[id]/page.tsx` — Server Component
-- `src/components/projects/ProjectHeader.tsx`
-- `src/components/projects/TeamList.tsx`
-- `src/components/projects/UpdatesFeed.tsx`
-- `src/components/projects/RepoPreview.tsx` — uses `fetchRepoMetadata`
+**Problem:** `projects` table has no `notion_url` column. The form and API write it but it silently drops.
 
-**Acceptance criteria:**
-- [ ] Header: title, description, status badge, skills, `repo_url` + `notion_url` links
-- [ ] Team member list with roles and avatars
-- [ ] Updates/activity feed from `updates` table, newest first
-- [ ] Vote + Raise Hand buttons (same behaviour as card)
-- [ ] Edit button visible only to project owner
-- [ ] RepoPreview: name, description, stars, language, last updated, README excerpt (500 chars)
-- [ ] RepoPreview gracefully handles null (rate limited / not found)
-- [ ] GitHub fetch cached: `next: { revalidate: 3600 }`
-- [ ] 404 for missing projects
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
-
----
-
-### PR-05 — Vote and Raise Hand
-**Branch:** `feat/pr-05-vote-raise-hand`  
-**Depends on:** Step 1 (auth fix)
-
-**Files to create:**
-- `src/app/api/v1/projects/[id]/vote/route.ts` — POST toggle vote
-- `src/app/api/v1/projects/[id]/raise-hand/route.ts` — POST toggle raise-hand
-
-**Acceptance criteria:**
-- [ ] Vote: toggles `votes` table row, updates `projects.vote_count` via Supabase RPC (no direct UPDATE)
-- [ ] Vote: returns `{ voteCount: number, hasVoted: boolean }`
-- [ ] Raise Hand: toggles `project_members` row (role: `'interested'`)
-- [ ] Raise Hand: calls `dmOwnerRaisedHand()` on join
-- [ ] Cannot vote or raise hand on own project
-- [ ] Session user only — never trust client-supplied user ID
-- [ ] Returns 401 if unauthenticated
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
-
----
-
-### PR-06 — Create and Edit Project Form
-**Branch:** `feat/pr-06-create-edit-form`  
-**Depends on:** Step 1 (auth fix)
-
-**Files to create:**
-- `src/app/(app)/projects/new/page.tsx`
-- `src/app/(app)/projects/[id]/edit/page.tsx` — owner only
-- `src/app/api/v1/projects/route.ts` — POST create
-- `src/app/api/v1/projects/[id]/route.ts` — PUT update, DELETE
-- `src/components/projects/ProjectForm.tsx` — shared form component
-
-**Acceptance criteria:**
-- [ ] Fields: title, description, status, skills_needed (tag input), github_repos (multi-input), notion_url
-- [ ] Client-side validation (required fields, URL format)
-- [ ] On create: inserts project, inserts owner into `project_members` (role: `'owner'`), calls `notifyProjectUpdate()`
-- [ ] Redirects to `/projects/[id]` after create
-- [ ] Edit form pre-populated, restricted to owner
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
-
----
-
-### PR-07 — User Profile Page
-**Branch:** `feat/pr-07-user-profile`  
-**Depends on:** Step 1 (auth fix)
-
-**Files to create:**
-- `src/app/(app)/profile/[id]/page.tsx` — public view
-- `src/app/(app)/profile/me/page.tsx` — own profile with edit
-- `src/components/profile/ProfileCard.tsx`
-- `src/components/profile/SkillChips.tsx`
-- `src/app/api/v1/users/me/route.ts` — PATCH
-
-**Acceptance criteria:**
-- [ ] Avatar: photo if available, else initials with `avatarColor(userId)`
-- [ ] Displays: name, title, brand, skills, projects owned/contributed to
-- [ ] LinkedIn and GitHub links if present
-- [ ] CoWork sync status indicator
-- [ ] Own profile: editable fields are `linkedin_url`, `github_username`, skills only
-- [ ] Name, title, brand, photo are read-only (CoWork-sourced)
-- [ ] PATCH validates input, updates only allowed fields
-- [ ] 404 for unknown user IDs
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
-
----
-
-### PR-08 — Slack Notifications
-**Branch:** `feat/pr-08-slack-wiring`  
-**Depends on:** PR-05, PR-06
-
-**Files to create/verify:**
-- `src/app/api/v1/projects/[id]/needs-help/route.ts` — POST toggle `needs_help`
-- Wire `notifyNeedsHelp()` into needs-help toggle
-- Wire `notifyMilestone()` when `vote_count` crosses 10
-- Verify `notifyProjectUpdate()` fires on project create (PR-06)
-
-**Acceptance criteria:**
-- [ ] New project → posts to `#omnia-projects` (Block Kit, includes project link)
-- [ ] Member raises hand → posts to `#omnia-projects`
-- [ ] Project hits 10 votes → posts to `#wins`
-- [ ] Needs-help toggled true → posts to `#omnia-projects`
-- [ ] Slack calls are fire-and-forget (never block the main action)
-- [ ] Slack errors logged but never return 500 to client
-- [ ] Only project owner can toggle `needs_help`
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
-
----
-
-### PR-09 — Weekly Email Digest
-**Branch:** `feat/pr-09-email-digest`  
-**Depends on:** PR-03
-
-**Files to create:**
-- `src/app/api/cron/digest/route.ts` — GET, secured with `CRON_SECRET`
-- `src/lib/email/digest.ts` — full implementation (stub exists)
-- `src/app/api/v1/users/me/unsubscribe/route.ts` — GET unsubscribe handler
-- `vercel.json` — cron schedule
-
-**Schema addition:**
+**Fix:** Add migration `004_notion_url.sql`:
 ```sql
--- supabase/migrations/002_email_digest.sql
-alter table public.users add column if not exists email_digest boolean default true;
+alter table public.projects add column if not exists notion_url text;
 ```
 
 **Acceptance criteria:**
-- [ ] Endpoint returns 401 without `Authorization: Bearer {CRON_SECRET}` header
-- [ ] Queries projects created/updated in last 7 days
-- [ ] Sends to all users where `email_digest = true`
-- [ ] Email: subject, top 5 projects by vote count, CTA to `/discover`, unsubscribe link
-- [ ] Unsubscribe link sets `users.email_digest = false`
-- [ ] Vercel cron runs weekly (Monday 08:00 AEST)
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
+- [ ] `notion_url` persists when saved via project form
+- [ ] Migration file exists and is applied to remote
 
 ---
 
-### PR-10 — CoWork Sync
-**Branch:** `feat/pr-10-cowork-sync`  
-**Depends on:** Step 1 (auth fix)
+### A4 — `src/components/ui/` primitives missing
 
-**Files to create/implement:**
-- `src/app/api/webhooks/cowork/route.ts` — POST webhook receiver
-- `src/lib/cowork/sync.ts` — full implementation (stub exists)
-- Wire sync into `src/app/auth/callback/route.ts` (on login)
+**Problem:** Avatar, Badge, SkeletonCard are inlined in ProjectCard. Phase 2 components need them as shared primitives.
+
+**Fix:** Extract into:
+- `src/components/ui/Avatar.tsx` — initials avatar with `avatarColor(userId)`
+- `src/components/ui/Badge.tsx` — status badge
+- `src/components/ui/SkeletonCard.tsx` — loading skeleton
+
+Update ProjectCard to import from these. No visual change.
 
 **Acceptance criteria:**
-- [ ] `/api/webhooks/cowork` receives project update events, upserts records (idempotent)
-- [ ] On login: fetches CoWork profile, updates `name`, `title`, `brand`, `profile_photo_url`, sets `cowork_synced_at`
-- [ ] CoWork fields never writable via user-facing API
-- [ ] Structured JSON error logging on sync failure
-- [ ] Login succeeds even if CoWork is unreachable
-- [ ] `npx tsc --noEmit` passes, `npm run lint` passes
+- [ ] Three files exist and are used by ProjectCard
+- [ ] `npx tsc --noEmit` passes
 
 ---
 
-## Phase 2 — AI-Native Capabilities (PRs 11–13)
+## Part B — Phase 2: AI-Native Capabilities
 
-Phase 2 begins after all Phase 1 PRs are merged to `main`. Three tracks implemented in order due to dependencies.
-
-**AI provider:** Anthropic Claude API via `ANTHROPIC_API_KEY`. Add to `.env.local.example`.
+### Dependencies to install
+```bash
+npm install @anthropic-ai/sdk
+```
+Add to `.env.local.example`:
+```
+ANTHROPIC_API_KEY=sk-ant-your-key
+NEXT_PUBLIC_APP_URL=https://oclabs.space
+```
 
 ---
 
 ### PR-11 — Context Engineering Workbench
-**Branch:** `feat/pr-11-context-workbench`  
-**Depends on:** PR-04 (project detail page)
 
-**Concept:** Every project becomes an agent-addressable context artifact. Members author structured context blocks (architecture decisions, constraints, tribal knowledge) that are versioned, attached to projects, and exportable as MCP-ready JSON.
+**Concept:** Every project gets a Context tab. Members author structured context blocks (architecture decisions, constraints, tribal knowledge). Blocks are versioned and exportable as MCP-ready JSON for agent consumption.
 
-**Schema:**
+#### Schema — `supabase/migrations/005_context_blocks.sql`
 ```sql
--- supabase/migrations/003_context_blocks.sql
 create table public.context_blocks (
   id uuid primary key default uuid_generate_v4(),
   project_id uuid references public.projects(id) on delete cascade,
   author_id uuid references public.users(id),
   title text not null,
   body text not null,
-  block_type text default 'general', -- 'architecture' | 'constraint' | 'decision' | 'general'
+  block_type text default 'general',
   version integer default 1,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
+
+alter table public.context_blocks enable row level security;
+
+create policy "read context blocks" on public.context_blocks
+  for select using (auth.role() = 'authenticated');
+
+create policy "write context blocks" on public.context_blocks
+  for all using (
+    exists (
+      select 1 from public.project_members
+      where project_id = context_blocks.project_id
+        and user_id = auth.uid()
+        and role in ('owner', 'contributor')
+    )
+  );
 ```
 
-**Files to create:**
-- `src/app/(app)/projects/[id]/context/page.tsx` — Context tab on project detail
-- `src/components/context/ContextBlockEditor.tsx` — create/edit block form
-- `src/components/context/ContextBlockList.tsx` — versioned list
-- `src/app/api/v1/projects/[id]/context/route.ts` — GET (MCP export), POST (create)
+#### Files to create
+- `src/app/(app)/projects/[id]/context/page.tsx` — Context tab (Server Component)
+- `src/components/context/ContextBlockList.tsx` — list with type badges
+- `src/components/context/ContextBlockEditor.tsx` — create/edit form (`'use client'`)
+- `src/app/api/v1/projects/[id]/context/route.ts` — GET (MCP JSON), POST (create)
 - `src/app/api/v1/projects/[id]/context/[blockId]/route.ts` — PUT, DELETE
 
+#### Navigation
+Add "Context" tab link to project detail page layout.
+
+#### MCP export format (GET response)
+```json
+{
+  "project": { "id", "title", "summary", "status", "skills_needed" },
+  "team": [{ "name", "role" }],
+  "blocks": [{ "id", "title", "body", "block_type", "version", "created_at" }]
+}
+```
+
 **Acceptance criteria:**
-- [ ] Project detail has a "Context" tab alongside Updates
-- [ ] Members can create/edit/delete blocks (owner + contributors only)
-- [ ] Block types: Architecture, Decision, Constraint, General
-- [ ] Previous versions viewable
-- [ ] `GET /api/v1/projects/[id]/context` returns structured JSON: project metadata + team + all blocks
-- [ ] Export readable by any authenticated user (for agent consumption)
+- [ ] Context tab visible on project detail page
+- [ ] Owner + contributors can create/edit/delete blocks
+- [ ] Block types: Architecture, Decision, Constraint, General — shown as coloured badges
+- [ ] `GET /api/v1/projects/[id]/context` returns MCP JSON readable by any authenticated user
+- [ ] Empty state shown when no blocks exist
 - [ ] `npx tsc --noEmit` passes, `npm run lint` passes
 
 ---
 
-### PR-12 — Plan Mode + Task Decomposition
-**Branch:** `feat/pr-12-plan-mode`  
-**Depends on:** PR-11 (context blocks used as AI input)
+### PR-12 — Plan Mode + AI Task Decomposition
 
-**Concept:** Projects get a Plan tab. AI decomposes the project into agent-executable tasks with dependency mapping. Tasks are assignable to humans or flagged for agents.
+**Concept:** Projects get a Plan tab. "Decompose with AI" sends project title + description + context blocks to Claude and returns a structured task list rendered as a kanban board.
 
-**Schema:**
+#### Schema — `supabase/migrations/006_tasks.sql`
 ```sql
--- supabase/migrations/004_tasks.sql
 create table public.tasks (
   id uuid primary key default uuid_generate_v4(),
   project_id uuid references public.projects(id) on delete cascade,
   title text not null,
   body text,
-  status text default 'todo', -- 'todo' | 'in_progress' | 'done' | 'blocked'
+  status text default 'todo',
   assignee_id uuid references public.users(id),
   assigned_to_agent boolean default false,
   depends_on uuid[] default '{}',
@@ -346,48 +169,74 @@ create table public.tasks (
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
+
+alter table public.tasks enable row level security;
+
+create policy "read tasks" on public.tasks
+  for select using (auth.role() = 'authenticated');
+
+create policy "write tasks" on public.tasks
+  for all using (
+    exists (
+      select 1 from public.project_members
+      where project_id = tasks.project_id
+        and user_id = auth.uid()
+        and role in ('owner', 'contributor')
+    )
+  );
 ```
 
-**Files to create:**
-- `src/app/(app)/projects/[id]/plan/page.tsx` — Plan tab
-- `src/components/plan/TaskBoard.tsx` — kanban board (Todo / In Progress / Done / Blocked)
-- `src/components/plan/TaskCard.tsx` — task with dependency indicators
-- `src/components/plan/DependencyGraph.tsx` — SVG dependency graph
-- `src/app/api/v1/projects/[id]/plan/route.ts` — POST decompose (calls Claude)
-- `src/app/api/v1/projects/[id]/tasks/route.ts` — CRUD
-- `src/lib/ai/decompose.ts` — Claude API call, returns structured task list
+#### Files to create
+- `src/app/(app)/projects/[id]/plan/page.tsx` — Plan tab (Server Component)
+- `src/components/plan/TaskBoard.tsx` — 4-column kanban (`'use client'`)
+- `src/components/plan/TaskCard.tsx` — task with assignee, agent flag, dependency count
+- `src/app/api/v1/projects/[id]/plan/route.ts` — POST: calls Claude, saves tasks, returns list
+- `src/app/api/v1/projects/[id]/tasks/route.ts` — GET, POST
+- `src/app/api/v1/projects/[id]/tasks/[taskId]/route.ts` — PATCH, DELETE
+- `src/lib/ai/decompose.ts` — Claude API call via `@anthropic-ai/sdk`
+
+#### Claude call (`src/lib/ai/decompose.ts`)
+- Model: `claude-3-5-haiku-20241022`
+- Input: project title, summary, context blocks
+- Output: JSON array `[{ title, body, status, assigned_to_agent }]`
+- Max tokens: 2048
+- Parse response as JSON; on parse failure return empty array
+
+#### Task status update
+Button toggle on TaskCard: `todo → in_progress → done`, separate `blocked` toggle. No drag-and-drop.
 
 **Acceptance criteria:**
-- [ ] Project detail has a "Plan" tab
-- [ ] "Decompose with AI" sends title + description + context blocks to Claude, returns task list
-- [ ] Tasks rendered as kanban board
-- [ ] Tasks show dependency indicators
-- [ ] Dependency graph renders for projects with > 3 tasks
-- [ ] Tasks assignable to team members or flagged as "agent task"
-- [ ] Status updates via drag-and-drop or toggle
+- [ ] Plan tab visible on project detail page
+- [ ] "Decompose with AI" populates task list from Claude
+- [ ] Tasks rendered in 4-column kanban (Todo / In Progress / Done / Blocked)
+- [ ] Tasks assignable to team members via dropdown
+- [ ] Tasks flaggable as "Agent task"
+- [ ] Task status togglable via button
+- [ ] Empty state with "Decompose with AI" CTA
 - [ ] `npx tsc --noEmit` passes, `npm run lint` passes
 
 ---
 
-### PR-13 — Persona UX + Progressive Agent Participation
-**Branch:** `feat/pr-13-persona-agent`  
-**Depends on:** PR-11 (context export used as chat system prompt)
+### PR-13 — Project AI Chat + Agent API Keys
 
-**Schema:**
+#### Schema — `supabase/migrations/007_chat_apikeys.sql`
 ```sql
--- supabase/migrations/005_persona_agent.sql
-alter table public.users add column if not exists persona text default 'engineer';
--- 'citizen' | 'engineer' | 'lead' | 'agent'
-alter table public.users add column if not exists is_agent boolean default false;
-
 create table public.project_chat_messages (
   id uuid primary key default uuid_generate_v4(),
   project_id uuid references public.projects(id) on delete cascade,
-  role text not null, -- 'user' | 'assistant'
+  role text not null,
   content text not null,
   author_id uuid references public.users(id),
   created_at timestamp with time zone default now()
 );
+
+alter table public.project_chat_messages enable row level security;
+
+create policy "read chat" on public.project_chat_messages
+  for select using (auth.role() = 'authenticated');
+
+create policy "write chat" on public.project_chat_messages
+  for insert with check (author_id = auth.uid());
 
 create table public.api_keys (
   id uuid primary key default uuid_generate_v4(),
@@ -397,107 +246,122 @@ create table public.api_keys (
   created_at timestamp with time zone default now(),
   last_used_at timestamp with time zone
 );
+
+alter table public.api_keys enable row level security;
+
+create policy "manage own api keys" on public.api_keys
+  for all using (user_id = auth.uid());
 ```
 
-**Sub-feature C1 — Persona-based UX:**
-- `src/components/board/PersonaToggle.tsx` — Citizen / Engineer / Lead switcher in nav
-- Citizen mode: simplified cards, plain-language status labels, no technical fields
-- Engineer mode: full current UI
-- Lead mode: adds "Skills gap" panel on board (most-needed skills across all projects)
-- Persona stored in `users.persona`, persists across sessions
+#### Sub-feature 1 — Project AI Chat
 
-**Sub-feature C2 — Project AI Chat:**
-- `src/app/(app)/projects/[id]/chat/page.tsx` — Chat tab on project detail
-- `src/components/chat/ProjectChat.tsx` — streaming chat UI
+**Files to create:**
+- `src/app/(app)/projects/[id]/chat/page.tsx` — Chat tab (Server Component, loads history)
+- `src/components/chat/ProjectChat.tsx` — streaming chat UI (`'use client'`)
 - `src/app/api/v1/projects/[id]/chat/route.ts` — POST, streams Claude response
-- System prompt built from PR-11 context export
-- Chat history stored in `project_chat_messages`
 
-**Sub-feature C3 — Agent as Project Member:**
-- Agent users: `is_agent = true`, `persona = 'agent'`, visually distinct in team lists
-- `src/app/api/v1/projects/[id]/updates/route.ts` — POST update (human or agent via API key)
-- `src/app/(app)/settings/api-keys/page.tsx` — API key create/revoke UI
-- Agents authenticate via `Authorization: Bearer {api_key}` header
+**Chat behaviour:**
+- System prompt = MCP context export from PR-11
+- Streaming via native `ReadableStream`
+- User + assistant messages saved to `project_chat_messages`
+- History: last 50 messages loaded on mount
+- Only project members (any role) can chat; 401 for non-members
 
 **Acceptance criteria:**
-- [ ] Persona toggle in nav, persists to DB
-- [ ] Citizen mode hides skills chips, GitHub links, raw vote numbers
-- [ ] Lead mode adds skills gap panel on `/discover`
-- [ ] Chat tab available to all authenticated project members
-- [ ] Chat streams responses (no full-page reload)
-- [ ] Agent users show distinct icon in team lists
-- [ ] Agents can POST updates via API key auth
-- [ ] API key UI: create with label, revoke, see last-used timestamp
+- [ ] Chat tab visible on project detail page
+- [ ] Messages stream in real-time
+- [ ] Chat history persists across sessions
+- [ ] System prompt includes project context blocks
+- [ ] Non-members get 401
+
+#### Sub-feature 2 — Agent API Keys
+
+**Files to create:**
+- `src/app/(app)/settings/api-keys/page.tsx` — API key management UI
+- `src/app/api/v1/users/me/api-keys/route.ts` — GET list, POST create
+- `src/app/api/v1/users/me/api-keys/[keyId]/route.ts` — DELETE revoke
+- `src/app/api/v1/projects/[id]/updates/route.ts` — POST update (session auth OR bearer API key)
+- `src/lib/auth/api-key.ts` — `verifyApiKey(req)` helper
+
+**Key generation:** `crypto.randomBytes(32).toString('hex')` — shown once, stored as SHA-256 hash.
+
+**Nav:** Add "Settings" link to `src/app/(app)/layout.tsx`.
+
+**Acceptance criteria:**
+- [ ] Settings page accessible from nav
+- [ ] User can create API key with label — full key shown once
+- [ ] User can revoke keys
+- [ ] `last_used_at` updates on each use
+- [ ] Agents can POST project updates via `Authorization: Bearer {key}`
+- [ ] Invalid/revoked keys return 401
 - [ ] `npx tsc --noEmit` passes, `npm run lint` passes
 
 ---
 
-## Schema Migration Summary
+## Migration Execution Order
 
-| File | Contents | Phase |
-|------|----------|-------|
-| `supabase/migrations/002_email_digest.sql` | `users.email_digest` column | Phase 1 — PR-09 |
-| `supabase/migrations/003_context_blocks.sql` | `context_blocks` table + RLS | Phase 2 — PR-11 |
-| `supabase/migrations/004_tasks.sql` | `tasks` table + RLS | Phase 2 — PR-12 |
-| `supabase/migrations/005_persona_agent.sql` | `users.persona`, `users.is_agent`, `project_chat_messages`, `api_keys` | Phase 2 — PR-13 |
+After each migration file is created:
+```bash
+/tmp/supabase db push
+```
 
----
-
-## New Environment Variables
-
-| Variable | Required | Phase | Used in |
-|----------|----------|-------|---------|
-| `CRON_SECRET` | Yes | Phase 1 | `/api/cron/digest` auth |
-| `RESEND_FROM` | Yes | Phase 1 | Email digest sender address |
-| `ANTHROPIC_API_KEY` | Yes | Phase 2 | Task decomposition + project chat |
+| File | Contents |
+|------|----------|
+| `004_notion_url.sql` | `projects.notion_url` column |
+| `005_context_blocks.sql` | `context_blocks` table + RLS |
+| `006_tasks.sql` | `tasks` table + RLS |
+| `007_chat_apikeys.sql` | `project_chat_messages`, `api_keys` + RLS |
 
 ---
 
 ## Implementation Order
 
 ```
-Step 0: Branch hygiene
-Step 1: Auth fix — (app)/layout.tsx + SignOutButton → merge to main
+A1 — ProjectActions component
+A2 — Fix APP_URL
+A3 — Migration 004 + push
+A4 — Extract ui/ primitives
 
-Phase 1 (parallel where possible):
-  Window A: PR-02 ProjectCard          → unblocks PR-03, PR-04, PR-08, PR-09
-  Window B: PR-05 Vote+RaiseHand       → parallel (pure API)
-  Window C: PR-06 Create/Edit Form     → parallel (pure API + page)
-  Window D: PR-10 CoWork Sync          → parallel (independent)
+npm install @anthropic-ai/sdk
 
-  After PR-02 merges:
-  Window E: PR-03 Discovery Board
-  Window F: PR-04 Project Detail
-  Window G: PR-07 User Profile
+PR-11 — migration 005 → API routes → UI tabs
+PR-12 — migration 006 → decompose lib → API → kanban UI
+PR-13 — migration 007 → chat API + UI → api-key API + settings UI
 
-  After PR-03 + PR-05 + PR-06 merge:
-  Window H: PR-08 Slack Wiring
-  Window I: PR-09 Email Digest
-
-Phase 2 (sequential):
-  PR-11 Context Workbench
-  PR-12 Plan Mode          (uses PR-11 context blocks as AI input)
-  PR-13 Persona + Agent    (uses PR-11 context export as chat system prompt)
+Final: add Context/Plan/Chat/Settings to nav
+Final: npx tsc --noEmit && npm run lint
+Final: git commit + push → Vercel deploy
 ```
 
 ---
 
-## Completion Criteria (Ralph Loop Done When)
+## Design Principles (apply to every component)
 
-1. ✅ Branch hygiene complete — `git branch -r` shows only `main` + 9 `feat/pr-*` branches
-2. ✅ Auth fix merged to `main` — login → `/discover` works without 404 on Vercel
-3. ✅ All Phase 1 PRs (02–10) merged to `main` — board, voting, profiles, Slack, email, CoWork all functional with real seeded data
-4. ✅ All Phase 2 PRs (11–13) merged to `main` — context workbench, plan mode, persona UX, agent participation all functional
-5. ✅ Every PR passes `npx tsc --noEmit` + `npm run lint` before merge
-6. ✅ `main` deploys cleanly to Vercel at each merge
+- **Abstract complexity** — AI calls, streaming, DB writes happen invisibly. Users see outcomes, not mechanics. No loading spinners with technical labels, no raw error objects, no "calling Claude..." messages.
+- **Clean UI, minimal noise** — No redundant labels, no decorative chrome. Every element earns its place. Match the existing zinc/white aesthetic exactly.
+- **Progressive disclosure** — Show the simple thing first. Advanced options (block type, agent flag, depends_on) are secondary, not prominent.
+- **Empty states are invitations** — Every empty state has one clear CTA, not explanatory paragraphs.
+- **Errors are quiet** — Inline, small, red text. No modals, no toasts for non-critical failures.
 
 ---
 
-## Out of Scope
+## Completion Criteria
 
-- Kernel-level agent behavioral firewall (infrastructure product)
-- Air-gapped MCP / private VPC deployment (enterprise infra)
-- Compliance-aware SDLC wrapper (regulated industry product)
-- Multi-repo change orchestration (separate product)
-- Mobile-first review interface (Phase 3 consideration)
-- Agent-to-agent API contracts / software factory (future bet)
+The Ralph loop is done when ALL of the following are true:
+
+**Phase 1 fixes:**
+- [ ] Vote/Raise Hand on project detail page work without page reload
+- [ ] APP_URL env var used in digest and slack-events
+- [ ] `notion_url` column exists and saves correctly
+- [ ] `src/components/ui/` has Avatar, Badge, SkeletonCard
+
+**Phase 2:**
+- [ ] Context tab: create/edit/delete blocks, MCP JSON export at `/api/v1/projects/[id]/context`
+- [ ] Plan tab: AI decompose creates tasks, kanban board renders and is interactive
+- [ ] Chat tab: streaming Claude responses grounded in context blocks
+- [ ] Settings page: create/revoke API keys; agents can POST updates via bearer token
+- [ ] Migrations 004–007 applied to Supabase remote
+- [ ] `ANTHROPIC_API_KEY` and `NEXT_PUBLIC_APP_URL` in `.env.local.example`
+- [ ] `npx tsc --noEmit` passes
+- [ ] `npm run lint` passes
+- [ ] Pushed to `main` → Vercel deploys without build errors
