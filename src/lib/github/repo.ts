@@ -18,7 +18,7 @@ export async function fetchRepoMetadata(repoUrl: string): Promise<RepoMetadata |
   const [, owner, repo] = match
 
   try {
-    const authHeader = process.env.GITHUB_TOKEN
+    const authHeader: Record<string, string> = process.env.GITHUB_TOKEN
       ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
       : {}
 
