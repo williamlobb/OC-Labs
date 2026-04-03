@@ -56,12 +56,14 @@ CoWork is the source of truth for: `name`, `title`, `brand`, `profile_photo_url`
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | All Supabase clients |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser + server anon clients |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | `src/lib/supabase/admin.ts` — server only |
-| `COWORK_API_URL` | Yes | `src/lib/cowork/client.ts` |
-| `COWORK_API_KEY` | Yes | `src/lib/cowork/client.ts` |
-| `GITHUB_TOKEN` | Optional | `src/lib/github/repo.ts` — raises API rate limit |
-| `SLACK_WEBHOOK_PROJECTS` | Optional | Project + join notifications |
-| `SLACK_WEBHOOK_WINS` | Optional | Milestone notifications |
-| `RESEND_API_KEY` | Optional | Email digest (not yet implemented) |
+| `COWORK_API_URL` | Optional (not live yet) | `src/lib/cowork/client.ts` — omit until CoWork API is available |
+| `COWORK_API_KEY` | Optional (not live yet) | `src/lib/cowork/client.ts` — omit until CoWork API is available |
+| `RESEND_API_KEY` | Yes | Email digest — `src/lib/email/digest.ts` |
+| `RESEND_FROM` | Yes | Sender address for digest emails |
+| `CRON_SECRET` | Yes | Secures POST /api/cron/digest against unauthenticated calls |
+| `GITHUB_TOKEN` | Optional | `src/lib/github/repo.ts` — raises API rate limit from 60 to 5000 req/hr |
+| `SLACK_WEBHOOK_PROJECTS` | Optional | Project creation + join notifications |
+| `SLACK_WEBHOOK_WINS` | Optional | Milestone update notifications |
 
 Create `.env.local` from `.env.local.example` before running `npm run dev`.
 
@@ -116,6 +118,16 @@ src/components/
 
 Phase 1 PRs are implemented in order (PR-01 through PR-10). See README for the full list.
 Always branch from `develop`, not `main`.
+
+### Commit checkpoints
+
+After completing each PR unit of work (all files for that PR are written and `npm run lint` passes):
+
+1. Stage only the files for that PR — do not batch multiple PRs into one commit
+2. Commit immediately with a scoped message: `feat(pr-NN): short description`
+3. Do not leave work as unstaged changes while moving on to the next PR
+
+**Never** let a multi-PR session end with a single large unstaged diff.
 
 ---
 
