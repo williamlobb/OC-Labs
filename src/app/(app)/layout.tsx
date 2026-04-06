@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { SignOutButton } from '@/components/auth/SignOutButton'
 
@@ -8,9 +9,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/discover"
-            className="font-brand text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50"
+            className="flex items-center gap-2 font-brand text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50"
           >
-            OC Labs
+            <Image src="/omnia-icon.svg" alt="Omnia logo" width={28} height={28} priority />
+            <span>OC Labs</span>
           </Link>
           <nav className="flex items-center gap-6">
             <Link

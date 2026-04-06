@@ -9,10 +9,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
   const next = searchParams.get('next')
-
   const destination = isSafeRedirect(next ?? '') ? next! : '/discover'
 
   if (!code) {
+    console.error(JSON.stringify({ event: 'auth_callback_no_code' }))
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -43,18 +43,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
+    console.error(JSON.stringify({ event: 'auth_callback_exchange_error', message: error.message, status: error.status, name: error.name }))
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   const { data: { user } } = await supabase.auth.getUser()
-
   if (user) {
     try {
       await upsertUser(user as User)
     } catch {
       // upsert failure does not block login — user reconciled on next request
     }
-
     if (user.email) {
       syncCoWorkProfile(user.id, user.email).catch((err) =>
         console.error(JSON.stringify({ event: 'cowork_sync_error', error: String(err) }))
