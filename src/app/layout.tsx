@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "OC Labs",
-  description: "Internal project discovery and collaboration board for the Omnia Collective.",
+  description: "Internal project discovery and collaboration board for the Omnia Collective Skunkworks.",
 };
 
 export default function RootLayout({
