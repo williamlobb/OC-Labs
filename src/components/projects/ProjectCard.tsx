@@ -48,7 +48,7 @@ export function ProjectCard(props: ProjectCardProps) {
       )}
 
       {/* Title */}
-      <h3 className="mt-3 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+      <h3 className="font-heading mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
         {title}
       </h3>
 

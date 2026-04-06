@@ -56,7 +56,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         {/* GitHub repos */}
         {project.github_repos?.length > 0 && (
           <section>
-            <h2 className="mb-3 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            <h2 className="font-heading mb-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
               Repositories
             </h2>
             <div className="space-y-3">
@@ -69,7 +69,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
         {/* Updates feed */}
         <section>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          <h2 className="font-heading mb-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
             Updates
           </h2>
           <UpdatesFeed updates={(updates ?? []) as ProjectUpdate[]} />
@@ -79,7 +79,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       {/* Sidebar */}
       <aside className="space-y-6">
         <section>
-          <h2 className="mb-3 text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          <h2 className="font-heading mb-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
             Team
           </h2>
           <TeamList members={teamMembers} />

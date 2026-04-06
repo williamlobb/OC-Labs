@@ -8,7 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link
             href="/discover"
-            className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50"
+            className="font-brand text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50"
           >
             OC Labs
           </Link>
