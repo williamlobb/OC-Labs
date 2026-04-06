@@ -45,7 +45,7 @@ export function ProfileCard({
           </div>
         )}
         <div className="space-y-0.5">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">{name}</h1>
+          <h1 className="font-heading text-xl font-bold text-zinc-900 dark:text-zinc-50">{name}</h1>
           {title && <p className="text-sm text-zinc-600 dark:text-zinc-400">{title}</p>}
           {brand && <p className="text-xs text-zinc-500">{brand}</p>}
         </div>
@@ -77,14 +77,14 @@ export function ProfileCard({
 
       {/* Skills */}
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Skills</h2>
+        <h2 className="font-heading mb-2 text-sm font-bold text-zinc-700 dark:text-zinc-300">Skills</h2>
         <SkillChips skills={skills} />
       </section>
 
       {/* Projects */}
       {projects.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Projects</h2>
+          <h2 className="font-heading mb-2 text-sm font-bold text-zinc-700 dark:text-zinc-300">Projects</h2>
           <ul className="space-y-1">
             {projects.map((p) => (
               <li key={p.id}>

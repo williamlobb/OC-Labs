@@ -32,7 +32,7 @@ export function ProjectHeader({ project, isOwner }: ProjectHeaderProps) {
               <span className="text-sm text-zinc-500">{project.brand}</span>
             )}
           </div>
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{project.title}</h1>
+          <h1 className="font-heading text-3xl font-bold text-zinc-900 dark:text-zinc-50">{project.title}</h1>
         </div>
         {isOwner && (
           <a

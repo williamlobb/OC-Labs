@@ -63,7 +63,7 @@ export default async function MyProfilePage() {
       />
 
       <section>
-        <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="font-heading mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-50">
           Edit profile
         </h2>
         <p className="mb-4 text-xs text-zinc-500">

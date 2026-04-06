@@ -17,7 +17,7 @@ export default async function LoginPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Sign in</h1>
+        <h1 className="font-heading text-xl font-bold text-zinc-900 dark:text-zinc-50">Sign in</h1>
         <p className="mt-1 text-sm text-zinc-500">Welcome back to OC Labs</p>
       </div>
 

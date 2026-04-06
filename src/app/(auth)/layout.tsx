@@ -3,7 +3,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <span className="font-brand text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
             OC Labs
           </span>
           <p className="text-sm text-zinc-500 mt-1">Omnia Collective</p>
