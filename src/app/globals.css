@@ -22,7 +22,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Inter, Helvetica, sans-serif;
+  font-family: Space Grotesk, Inter, sans-serif;
 }
 
 /* ── OC Labs Design Tokens ────────────────────────────────────────────── */
