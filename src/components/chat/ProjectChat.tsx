@@ -130,7 +130,7 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
 
       {/* Input */}
       <div className="pt-3">
-        <div className="flex items-end gap-2">
+        <div className="relative flex items-end rounded-lg border border-zinc-200 bg-zinc-50 focus-within:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">
           <textarea
             ref={textareaRef}
             value={input}
@@ -139,20 +139,22 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
             placeholder="Ask about this project…"
             rows={3}
             disabled={streaming}
-            className="flex-1 resize-none rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="flex-1 resize-none bg-transparent px-3 py-2.5 pr-10 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
           />
           <button
             onClick={handleSend}
             disabled={streaming || !input.trim()}
             className={cn(
-              'rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200',
-              (streaming || !input.trim()) && 'opacity-40 cursor-not-allowed'
+              'absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white dark:hover:bg-zinc-100 dark:hover:text-zinc-900',
+              (streaming || !input.trim()) ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
             )}
+            aria-label="Send"
           >
-            Send
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path fillRule="evenodd" d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z" clipRule="evenodd" />
+            </svg>
           </button>
         </div>
-        <p className="mt-1.5 text-xs text-zinc-400">Enter to send · Shift+Enter for new line</p>
       </div>
     </div>
   )
