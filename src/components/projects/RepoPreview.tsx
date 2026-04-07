@@ -32,7 +32,7 @@ export async function RepoPreview({ repoUrl }: RepoPreviewProps) {
           rel="noopener noreferrer"
           className="group inline-flex items-center gap-1.5 text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
         >
-          <GitHubIcon className="h-4 w-4 text-zinc-400 transition-colors group-hover:text-black dark:group-hover:text-zinc-100" />
+          <GitHubIcon className="h-5 w-5 text-zinc-400 transition-colors group-hover:text-black dark:group-hover:text-zinc-100" />
           {fallbackLabel}
         </a>
       </div>
@@ -48,7 +48,7 @@ export async function RepoPreview({ repoUrl }: RepoPreviewProps) {
           rel="noopener noreferrer"
           className="group inline-flex items-center gap-1.5 font-medium text-zinc-900 hover:underline dark:text-zinc-100"
         >
-          <GitHubIcon className="h-4 w-4 text-zinc-400 transition-colors group-hover:text-black dark:group-hover:text-zinc-100" />
+          <GitHubIcon className="h-5 w-5 text-zinc-400 transition-colors group-hover:text-black dark:group-hover:text-zinc-100" />
           {meta.fullName || meta.name}
         </a>
         <div className="flex items-center gap-1 text-xs text-zinc-500">
