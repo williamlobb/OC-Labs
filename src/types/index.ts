@@ -41,6 +41,7 @@ export interface Project {
   needs_help: boolean
   vote_count: number
   notion_url?: string
+  jira_epic_key?: string
   created_at: string
   updated_at: string
 }

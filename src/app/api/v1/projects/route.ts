@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { notifyNewProject } from '@/lib/notifications/slack-events'
+import { createEpic } from '@/lib/jira/client'
 import type { ProjectStatus } from '@/types'
 
 const VALID_STATUSES: ProjectStatus[] = ['Idea', 'In progress', 'Needs help', 'Paused', 'Shipped']
@@ -70,6 +72,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     project.title,
     ownerProfile?.name ?? user.email ?? 'Unknown'
   ).catch((err) => console.error('Slack notify failed:', err))
+
+  // Create Jira Epic — fire and forget, never fail project creation.
+  // Uses supabaseAdmin for the follow-up UPDATE to avoid cookie-context
+  // issues inside the async callback.
+  if (process.env.JIRA_BASE_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN && process.env.JIRA_PROJECT_KEY) {
+    createEpic(project.title)
+      .then((epicKey) =>
+        supabaseAdmin
+          .from('projects')
+          .update({ jira_epic_key: epicKey })
+          .eq('id', project.id)
+      )
+      .catch((err) => console.error('Jira create epic failed:', err))
+  }
 
   return NextResponse.json(project, { status: 201 })
 }
