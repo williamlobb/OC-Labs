@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ContextWorkbench } from '@/components/context/ContextWorkbench'
+import { buildContextAttachmentUrl } from '@/lib/context/attachments'
 import type { ContextBlock } from '@/types'
 
 interface PageProps {
@@ -31,11 +32,15 @@ export default async function ContextPage({ params }: PageProps) {
   if (!project) notFound()
 
   const canEdit = !!membership && ['owner', 'contributor'].includes(membership.role)
+  const initialBlocks = ((blocks ?? []) as ContextBlock[]).map((block) => ({
+    ...block,
+    attachment_url: buildContextAttachmentUrl(block.attachment_path),
+  }))
 
   return (
     <ContextWorkbench
       projectId={id}
-      initialBlocks={(blocks ?? []) as ContextBlock[]}
+      initialBlocks={initialBlocks}
       canEdit={canEdit}
     />
   )

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils/cn'
+import { MAX_CONTEXT_ATTACHMENT_BYTES } from '@/lib/context/attachments'
 import type { ContextBlock, BlockType } from '@/types'
 
 const BLOCK_TYPES: { value: BlockType; label: string }[] = [
@@ -27,6 +28,7 @@ export function ContextBlockEditor({
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [blockType, setBlockType] = useState<BlockType>('general')
+  const [attachment, setAttachment] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -40,15 +42,22 @@ export function ContextBlockEditor({
       setBody('')
       setBlockType('general')
     }
+    setAttachment(null)
     setError('')
   }, [editingBlock])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!title.trim() || !body.trim()) {
-      setError('Title and body are required.')
+      setError('Title and description are required.')
       return
     }
+
+    if (attachment && attachment.size > MAX_CONTEXT_ATTACHMENT_BYTES) {
+      setError('Attachment must be 20MB or smaller.')
+      return
+    }
+
     setSaving(true)
     setError('')
 
@@ -57,15 +66,19 @@ export function ContextBlockEditor({
         ? `/api/v1/projects/${projectId}/context/${editingBlock.id}`
         : `/api/v1/projects/${projectId}/context`
       const method = editingBlock ? 'PUT' : 'POST'
+      const formData = new FormData()
+      formData.set('title', title.trim())
+      formData.set('body', body.trim())
+      formData.set('block_type', blockType)
+      if (attachment) formData.set('attachment', attachment)
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), body: body.trim(), block_type: blockType }),
+        body: formData,
       })
 
       if (!res.ok) {
-        const data = await res.json()
+        const data = await res.json().catch(() => ({}))
         setError(data.error ?? 'Something went wrong.')
         return
       }
@@ -107,12 +120,33 @@ export function ContextBlockEditor({
         </div>
 
         <textarea
-          placeholder="Describe the context, decision, or constraint…"
+          placeholder="Description (required)"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={4}
           className="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none resize-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
         />
+
+        <div className="space-y-1">
+          <label className="text-xs text-zinc-500 dark:text-zinc-400">
+            Attachment (optional, any file type)
+          </label>
+          <input
+            type="file"
+            onChange={(e) => setAttachment(e.target.files?.[0] ?? null)}
+            className="block w-full text-xs text-zinc-500 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-700 hover:file:bg-zinc-300 dark:text-zinc-400 dark:file:bg-zinc-700 dark:file:text-zinc-100 dark:hover:file:bg-zinc-600"
+          />
+          {editingBlock?.attachment_name && !attachment && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Current file: {editingBlock.attachment_name}
+            </p>
+          )}
+          {attachment && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Selected: {attachment.name}
+            </p>
+          )}
+        </div>
 
         {error && <p className="text-xs text-red-600">{error}</p>}
 

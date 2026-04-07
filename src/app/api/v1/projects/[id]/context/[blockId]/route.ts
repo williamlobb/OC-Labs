@@ -1,5 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import {
+  buildContextAttachmentPath,
+  buildContextAttachmentUrl,
+  CONTEXT_ATTACHMENTS_BUCKET,
+  isFileLike,
+  MAX_CONTEXT_ATTACHMENT_BYTES,
+} from '@/lib/context/attachments'
+import type { BlockType } from '@/types'
+
+const BLOCK_TYPES = new Set<BlockType>(['general', 'architecture', 'decision', 'constraint'])
+
+interface ContextPayload {
+  title?: string
+  body?: string
+  blockType?: string
+  attachment?: File | null
+}
+
+function readString(value: FormDataEntryValue | null): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function withAttachmentUrl<T extends { attachment_path?: string | null }>(block: T): T & { attachment_url: string | null } {
+  return {
+    ...block,
+    attachment_url: buildContextAttachmentUrl(block.attachment_path),
+  }
+}
+
+async function parsePayload(req: NextRequest): Promise<ContextPayload> {
+  const contentType = req.headers.get('content-type') ?? ''
+
+  if (contentType.includes('multipart/form-data')) {
+    const formData = await req.formData()
+    const attachmentCandidate = formData.get('attachment')
+    const attachment = isFileLike(attachmentCandidate) && attachmentCandidate.size > 0
+      ? attachmentCandidate
+      : null
+
+    return {
+      title: readString(formData.get('title')),
+      body: readString(formData.get('body')),
+      blockType: readString(formData.get('block_type')),
+      attachment,
+    }
+  }
+
+  const json = await req.json().catch(() => ({})) as Record<string, unknown>
+
+  return {
+    title: typeof json.title === 'string' ? json.title : undefined,
+    body: typeof json.body === 'string' ? json.body : undefined,
+    blockType: typeof json.block_type === 'string' ? json.block_type : undefined,
+  }
+}
 
 export async function PUT(
   req: NextRequest,
@@ -22,28 +77,60 @@ export async function PUT(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json()
-  const { title, body: blockBody, block_type } = body
-
+  const payload = await parsePayload(req)
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (title?.trim()) updates.title = title.trim()
-  if (blockBody?.trim()) updates.body = blockBody.trim()
-  if (block_type) updates.block_type = block_type
 
-  // Reject requests that carry no meaningful changes
-  if (Object.keys(updates).length === 1) {
-    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  const title = payload.title?.trim()
+  if (title) updates.title = title
+
+  const description = payload.body?.trim()
+  if (description) updates.body = description
+
+  if (payload.blockType) {
+    if (!BLOCK_TYPES.has(payload.blockType as BlockType)) {
+      return NextResponse.json({ error: 'Invalid block_type' }, { status: 400 })
+    }
+
+    updates.block_type = payload.blockType
   }
 
-  // Increment version on edit
+  if (payload.attachment && payload.attachment.size > MAX_CONTEXT_ATTACHMENT_BYTES) {
+    return NextResponse.json({ error: 'Attachment must be 20MB or smaller' }, { status: 400 })
+  }
+
   const { data: existing } = await supabase
     .from('context_blocks')
-    .select('version')
+    .select('version, attachment_path')
     .eq('id', blockId)
     .eq('project_id', id)
     .single()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  let nextAttachmentPath: string | null = null
+
+  if (payload.attachment) {
+    nextAttachmentPath = buildContextAttachmentPath(id, payload.attachment.name || 'attachment')
+    const { error: uploadError } = await supabase.storage
+      .from(CONTEXT_ATTACHMENTS_BUCKET)
+      .upload(nextAttachmentPath, payload.attachment, {
+        contentType: payload.attachment.type || 'application/octet-stream',
+      })
+
+    if (uploadError) {
+      return NextResponse.json({ error: uploadError.message }, { status: 500 })
+    }
+
+    updates.attachment_name = payload.attachment.name
+    updates.attachment_path = nextAttachmentPath
+    updates.attachment_mime_type = payload.attachment.type || 'application/octet-stream'
+    updates.attachment_size_bytes = payload.attachment.size
+  }
+
+  if (Object.keys(updates).length === 1) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  }
+
   updates.version = (existing.version ?? 1) + 1
 
   const { data: block, error } = await supabase
@@ -51,12 +138,22 @@ export async function PUT(
     .update(updates)
     .eq('id', blockId)
     .eq('project_id', id)
-    .select()
+    .select('*')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (nextAttachmentPath) {
+      await supabase.storage.from(CONTEXT_ATTACHMENTS_BUCKET).remove([nextAttachmentPath])
+    }
 
-  return NextResponse.json(block)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  if (nextAttachmentPath && existing.attachment_path) {
+    await supabase.storage.from(CONTEXT_ATTACHMENTS_BUCKET).remove([existing.attachment_path])
+  }
+
+  return NextResponse.json(withAttachmentUrl(block))
 }
 
 export async function DELETE(
@@ -78,6 +175,23 @@ export async function DELETE(
 
   if (!membership || !['owner', 'contributor'].includes(membership.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { data: block } = await supabase
+    .from('context_blocks')
+    .select('id, attachment_path')
+    .eq('id', blockId)
+    .eq('project_id', id)
+    .single()
+
+  if (!block) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  if (block.attachment_path) {
+    const { error: removeError } = await supabase.storage
+      .from(CONTEXT_ATTACHMENTS_BUCKET)
+      .remove([block.attachment_path])
+
+    if (removeError) return NextResponse.json({ error: removeError.message }, { status: 500 })
   }
 
   const { error } = await supabase
