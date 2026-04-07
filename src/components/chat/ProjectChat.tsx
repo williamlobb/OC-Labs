@@ -129,7 +129,7 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
       </div>
 
       {/* Input */}
-      <div className="pt-3">
+      <div className="py-4">
         <div className="relative flex items-end rounded-lg border border-zinc-200 bg-zinc-50 focus-within:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">
           <textarea
             ref={textareaRef}
@@ -139,14 +139,16 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
             placeholder="Ask about this project…"
             rows={3}
             disabled={streaming}
-            className="flex-1 resize-none bg-transparent px-3 py-2.5 pr-10 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
+            className="flex-1 resize-none bg-transparent px-3 py-2.5 pr-12 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
           />
           <button
             onClick={handleSend}
             disabled={streaming || !input.trim()}
             className={cn(
-              'absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-white dark:hover:bg-zinc-100 dark:hover:text-zinc-900',
-              (streaming || !input.trim()) ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'
+              'absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-lg transition-all',
+              (streaming || !input.trim())
+                ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed dark:bg-zinc-700 dark:text-zinc-500'
+                : 'bg-zinc-900 text-white cursor-pointer hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300'
             )}
             aria-label="Send"
           >
