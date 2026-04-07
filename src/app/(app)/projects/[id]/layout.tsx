@@ -36,7 +36,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
   const isChatMember = isOwner || !!userMembership
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-[28rem]">
+    <div className="w-full space-y-6 pb-[28rem]">
       <ProjectHeader project={project as Project} isOwner={isOwner} />
 
       <ProjectActions
@@ -54,7 +54,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
 
       {/* Persistent chat panel — visible across all tabs */}
       <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
-        <div className="mx-auto max-w-4xl pointer-events-auto">
+        <div className="mx-auto max-w-7xl pointer-events-auto">
           {isChatMember ? (
             <ProjectChatPanel projectId={id} />
           ) : (
