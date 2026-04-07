@@ -63,14 +63,11 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
       <div>{children}</div>
 
       {/* Persistent chat panel — visible across all tabs */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-zinc-900">
         <div className="mx-auto max-w-4xl">
           {isChatMember ? (
             <div className="h-96">
-              <div className="flex items-center border-b border-zinc-200 px-4 py-2 dark:border-zinc-700">
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Project Chat</span>
-              </div>
-              <div className="h-[calc(100%-2.5rem)]">
+              <div className="h-full">
                 <ProjectChat
                   projectId={id}
                   initialMessages={(chatMessages ?? []) as ChatMessage[]}

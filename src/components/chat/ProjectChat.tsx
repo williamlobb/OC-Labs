@@ -95,9 +95,9 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden px-4">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+      <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-4">
         {messages.length === 0 && (
           <div className="py-16 text-center text-sm text-zinc-400">
             Ask anything about this project.
@@ -129,7 +129,7 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">
+      <div className="pt-3">
         <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
