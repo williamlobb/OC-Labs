@@ -21,7 +21,7 @@ func NewAgent(client *anthropic.Client, tools []ToolDefinition) *Agent {
 	return &Agent{
 		client: client,
 		tools:  tools,
-		model:  "claude-sonnet-4-20250514",
+		model:  "claude-sonnet-4-6",
 	}
 }
 

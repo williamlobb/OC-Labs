@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const runtime = 'edge'
+export const maxDuration = 60
 
 const AGENT_URL = process.env.AGENT_URL
 
@@ -142,7 +143,11 @@ function extractAuthToken(cookieHeader: string): string {
   // Chunked cookies: sb-xxx-auth-token.0=..., sb-xxx-auth-token.1=...
   const chunked = cookies
     .filter((c) => /\.(\d+)=/.test(c))
-    .sort()
+    .sort((a, b) => {
+      const numA = parseInt(a.match(/\.(\d+)=/)?.[1] ?? '0', 10)
+      const numB = parseInt(b.match(/\.(\d+)=/)?.[1] ?? '0', 10)
+      return numA - numB
+    })
   if (chunked.length > 0) {
     return chunked.map((c) => c.split('=').slice(1).join('=')).join('')
   }
