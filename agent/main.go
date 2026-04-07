@@ -58,7 +58,7 @@ func main() {
 	tools := []ToolDefinition{
 		GetProjectContextDef,
 		GetTasksDef,
-		ReadRepoReadmeDef,
+		ReadRepoFileDef,
 		PostUpdateDef,
 		CreateContextBlockDef,
 		CreateTasksDef,
@@ -75,8 +75,10 @@ func main() {
 }
 
 func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *http.Request) {
+	log.Printf("POST /chat from %s", r.RemoteAddr)
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("bad request: %v", err)
 		http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
 		return
 	}
@@ -118,9 +120,10 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 
 	flusher, ok := w.(http.Flusher)
 
+	log.Printf("running agent for project=%s", req.ProjectID)
 	_, err := agent.Run(ctx, toolCtx, systemPrompt, messages, &flushWriter{w: w, f: flusher, ok: ok})
 	if err != nil {
-		log.Printf("agent error: %v", err)
+		log.Printf("agent error project=%s: %v", req.ProjectID, err)
 		// If headers already sent, we can't change status code
 		fmt.Fprintf(w, "\n\n[agent error: %s]", err.Error())
 	}

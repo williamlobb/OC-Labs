@@ -9,22 +9,28 @@ import (
 	"strings"
 )
 
-// ReadRepoReadmeDef fetches the README from a linked GitHub repository.
-var ReadRepoReadmeDef = ToolDefinition{
-	Name:        "read_repo_readme",
-	Description: "Read the README from a linked GitHub repository. Optionally pass a specific repo_url, or omit to read the first linked repo.",
-	InputSchema: GenerateSchema[readRepoReadmeInput](),
-	Function:    readRepoReadme,
+// ReadRepoFileDef fetches any file from a linked GitHub repository by path.
+// To read the README, pass path "README.md".
+var ReadRepoFileDef = ToolDefinition{
+	Name:        "read_repo_file",
+	Description: "Read a file from a linked GitHub repository by path (e.g. README.md, CLAUDE.md, src/app/page.tsx). Omit repo_url to use the first linked repo.",
+	InputSchema: GenerateSchema[readRepoFileInput](),
+	Function:    readRepoFile,
 }
 
-type readRepoReadmeInput struct {
-	RepoURL string `json:"repo_url" jsonschema:"description=GitHub repository URL (e.g. https://github.com/owner/repo). Omit to use the first linked repo."`
+type readRepoFileInput struct {
+	Path    string `json:"path" jsonschema:"description=File path within the repository (e.g. README.md or src/app/page.tsx),required=true"`
+	RepoURL string `json:"repo_url" jsonschema:"description=GitHub repository URL. Omit to use the first linked repo."`
 }
 
-func readRepoReadme(ctx ToolContext, input json.RawMessage) (string, error) {
-	var params readRepoReadmeInput
+func readRepoFile(ctx ToolContext, input json.RawMessage) (string, error) {
+	var params readRepoFileInput
 	if err := json.Unmarshal(input, &params); err != nil {
 		return "", fmt.Errorf("failed to parse input: %w", err)
+	}
+
+	if params.Path == "" {
+		return "", fmt.Errorf("path is required")
 	}
 
 	repoURL := params.RepoURL
@@ -40,7 +46,7 @@ func readRepoReadme(ctx ToolContext, input json.RawMessage) (string, error) {
 		return "", err
 	}
 
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/readme", owner, repo)
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s", owner, repo, strings.TrimPrefix(params.Path, "/"))
 
 	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
 	if err != nil {
@@ -63,30 +69,30 @@ func readRepoReadme(ctx ToolContext, input json.RawMessage) (string, error) {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	if resp.StatusCode == http.StatusNotFound {
+		return "", fmt.Errorf("file %q not found in %s/%s", params.Path, owner, repo)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("GitHub API returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	content := string(body)
 	if len(content) > 8000 {
-		content = content[:8000]
+		content = content[:8000] + "\n... [truncated]"
 	}
 
 	return content, nil
 }
 
 // extractOwnerRepo parses a GitHub URL and returns owner and repo name.
-// Accepts formats like https://github.com/owner/repo or github.com/owner/repo.
 func extractOwnerRepo(repoURL string) (owner, repo string, err error) {
 	repoURL = strings.TrimSuffix(repoURL, "/")
 	repoURL = strings.TrimSuffix(repoURL, ".git")
 
-	// Strip scheme if present
 	if idx := strings.Index(repoURL, "://"); idx != -1 {
 		repoURL = repoURL[idx+3:]
 	}
 
-	// Remaining: github.com/owner/repo
 	parts := strings.Split(repoURL, "/")
 	if len(parts) < 3 {
 		return "", "", fmt.Errorf("invalid GitHub URL %q: expected format https://github.com/owner/repo", repoURL)
