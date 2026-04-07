@@ -1,9 +1,16 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { TaskCard } from './TaskCard'
 import { cn } from '@/lib/utils/cn'
-import type { Task, TaskStatus } from '@/types'
+import {
+  BLOCKED_TASK_PROMPT_AFTER_HOURS,
+  buildBlockedPromptDraft,
+  formatBlockedDuration,
+  getOverdueBlockedTasks,
+} from '@/lib/utils/blocked-tasks'
+import type { MemberRole, Task, TaskStatus } from '@/types'
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'To do' },
@@ -22,6 +29,7 @@ interface TaskBoardProps {
   initialTasks: Task[]
   teamMembers: TeamMember[]
   canEdit: boolean
+  viewerRole: MemberRole | null
 }
 
 function normalizeTask(task: Task): Task {
@@ -31,10 +39,14 @@ function normalizeTask(task: Task): Task {
   }
 }
 
-export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit }: TaskBoardProps) {
+export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewerRole }: TaskBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(() => initialTasks.map(normalizeTask))
   const [decomposing, setDecomposing] = useState(false)
   const [readyOnly, setReadyOnly] = useState(false)
+  const overdueBlockedTasks = getOverdueBlockedTasks(tasks)
+  const shouldPromptOwner = viewerRole === 'owner' && overdueBlockedTasks.length > 0
+  const oldestBlocked = overdueBlockedTasks[0]
+  const blockedPromptDraft = buildBlockedPromptDraft(overdueBlockedTasks)
 
   const taskById = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks])
 
@@ -155,6 +167,28 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit }: Tas
 
   return (
     <div className="space-y-4">
+      {shouldPromptOwner && (
+        <section className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-700/40 dark:bg-amber-900/20">
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+            {overdueBlockedTasks.length === 1
+              ? `A task has been blocked for more than ${BLOCKED_TASK_PROMPT_AFTER_HOURS} hours.`
+              : `${overdueBlockedTasks.length} tasks have been blocked for more than ${BLOCKED_TASK_PROMPT_AFTER_HOURS} hours.`}
+          </p>
+          <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+            Post an update so contributors can help unblock the work.
+            {oldestBlocked
+              ? ` Oldest blocker: ${formatBlockedDuration(oldestBlocked.blockedForHours)}.`
+              : ''}
+          </p>
+          <Link
+            href={`/projects/${projectId}?compose=1&draft=${encodeURIComponent(blockedPromptDraft)}`}
+            className="mt-3 inline-flex rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-400"
+          >
+            Post update
+          </Link>
+        </section>
+      )}
+
       <div className="flex flex-wrap justify-end gap-2">
         <button
           type="button"

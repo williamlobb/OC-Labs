@@ -36,6 +36,7 @@ export default async function PlanPage({ params }: PageProps) {
   if (!project) notFound()
 
   const canEdit = !!membership && ['owner', 'contributor'].includes(membership.role)
+  const viewerRole = (membership?.role ?? null) as MemberRole | null
 
   type MemberRow = {
     user_id: string
@@ -54,6 +55,7 @@ export default async function PlanPage({ params }: PageProps) {
       initialTasks={(tasks ?? []) as Task[]}
       teamMembers={teamMembers}
       canEdit={canEdit}
+      viewerRole={viewerRole}
     />
   )
 }

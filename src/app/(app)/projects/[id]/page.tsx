@@ -3,15 +3,19 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { TeamList } from '@/components/projects/TeamList'
 import { UpdatesFeed } from '@/components/projects/UpdatesFeed'
 import { RepoPreview } from '@/components/projects/RepoPreview'
+import { PostUpdateForm } from '@/components/projects/PostUpdateForm'
 import type { MemberRole, ProjectUpdate } from '@/types'
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ compose?: string; draft?: string }>
 }
 
-export default async function ProjectDetailPage({ params }: PageProps) {
+export default async function ProjectDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params
+  const { compose, draft } = await searchParams
   const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: project } = await supabase
     .from('projects')
@@ -21,7 +25,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   if (!project) notFound()
 
-  const [{ data: members }, { data: updates }] = await Promise.all([
+  const [{ data: members }, { data: updates }, { data: membership }] = await Promise.all([
     supabase
       .from('project_members')
       .select('user_id, role, users(name, profile_photo_url)')
@@ -31,7 +35,17 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       .select('*')
       .eq('project_id', id)
       .order('posted_at', { ascending: false }),
+    supabase
+      .from('project_members')
+      .select('role')
+      .eq('project_id', id)
+      .eq('user_id', user?.id ?? '')
+      .maybeSingle(),
   ])
+
+  const canPostUpdate = !!membership && ['owner', 'contributor'].includes(membership.role)
+  const draftBody = typeof draft === 'string' ? draft.slice(0, 4000) : ''
+  const shouldAutoFocusCompose = compose === '1'
 
   type MemberRow = {
     user_id: string
@@ -72,6 +86,13 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           <h2 className="font-heading mb-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
             Updates
           </h2>
+          {canPostUpdate && (
+            <PostUpdateForm
+              projectId={id}
+              initialBody={draftBody}
+              autoFocus={shouldAutoFocusCompose}
+            />
+          )}
           <UpdatesFeed updates={(updates ?? []) as ProjectUpdate[]} />
         </section>
       </div>
