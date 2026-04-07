@@ -27,16 +27,16 @@ export function ProjectChatPanel({
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          className="group flex h-full w-full items-center justify-center px-4"
+          className="group flex h-full w-full items-center justify-center px-4 text-zinc-600 transition-colors duration-200 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100"
           aria-label="Open project chat"
           title="Open project chat"
         >
-          <span className="inline-flex h-8 min-w-14 items-center justify-center rounded-full border border-zinc-300/80 bg-white/85 px-4 shadow-sm transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-md dark:border-zinc-600/80 dark:bg-zinc-900/80">
+          <span className="inline-flex items-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 20 20"
               fill="currentColor"
-              className="h-4 w-4 text-zinc-600 transition-colors duration-200 group-hover:text-zinc-800 dark:text-zinc-300 dark:group-hover:text-zinc-100"
+              className="h-4 w-4 transition-all duration-200 group-hover:-translate-y-0.5"
               aria-hidden="true"
             >
               <path
@@ -45,14 +45,17 @@ export function ProjectChatPanel({
                 clipRule="evenodd"
               />
             </svg>
+            <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap text-sm font-medium opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-32 group-hover:opacity-100">
+              Chat to agent
+            </span>
           </span>
         </button>
       ) : (
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">
+        <div className="relative flex h-full min-h-0 flex-col overflow-visible pt-3">
           <button
             type="button"
             onClick={() => setCollapsed(true)}
-            className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-300/85 bg-white/95 px-3 py-1 shadow-sm transition-all duration-200 hover:-translate-y-[55%] hover:shadow-md dark:border-zinc-600/80 dark:bg-zinc-900/90"
+            className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 rounded-t-xl rounded-b-lg border border-zinc-300/85 bg-white/95 px-3 py-1 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-600/80 dark:bg-zinc-900/90"
             aria-label="Collapse project chat"
             title="Minimize"
           >
@@ -71,7 +74,7 @@ export function ProjectChatPanel({
             </svg>
           </button>
 
-          <div className="min-h-0 flex-1 pb-1 pt-2">
+          <div className="min-h-0 flex-1 overflow-hidden rounded-2xl pb-1 pt-2">
             <ProjectChat projectId={projectId} initialMessages={initialMessages} />
           </div>
         </div>
