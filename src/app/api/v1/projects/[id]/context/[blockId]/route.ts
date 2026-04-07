@@ -6,6 +6,7 @@ import {
   CONTEXT_ATTACHMENTS_BUCKET,
   isFileLike,
   MAX_CONTEXT_ATTACHMENT_BYTES,
+  normalizeContextAttachmentError,
 } from '@/lib/context/attachments'
 import type { BlockType } from '@/types'
 
@@ -118,7 +119,7 @@ export async function PUT(
       })
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 })
+      return NextResponse.json({ error: normalizeContextAttachmentError(uploadError.message) }, { status: 500 })
     }
 
     updates.attachment_name = payload.attachment.name
@@ -191,7 +192,9 @@ export async function DELETE(
       .from(CONTEXT_ATTACHMENTS_BUCKET)
       .remove([block.attachment_path])
 
-    if (removeError) return NextResponse.json({ error: removeError.message }, { status: 500 })
+    if (removeError) {
+      return NextResponse.json({ error: normalizeContextAttachmentError(removeError.message) }, { status: 500 })
+    }
   }
 
   const { error } = await supabase

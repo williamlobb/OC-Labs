@@ -6,6 +6,7 @@ import {
   CONTEXT_ATTACHMENTS_BUCKET,
   isFileLike,
   MAX_CONTEXT_ATTACHMENT_BYTES,
+  normalizeContextAttachmentError,
 } from '@/lib/context/attachments'
 import type { BlockType } from '@/types'
 
@@ -161,7 +162,7 @@ export async function POST(
       })
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 })
+      return NextResponse.json({ error: normalizeContextAttachmentError(uploadError.message) }, { status: 500 })
     }
   }
 

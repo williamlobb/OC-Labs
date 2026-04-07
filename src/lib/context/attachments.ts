@@ -28,3 +28,11 @@ export function buildContextAttachmentUrl(path: string | null | undefined): stri
 export function isFileLike(value: FormDataEntryValue | null): value is File {
   return value instanceof File
 }
+
+export function normalizeContextAttachmentError(message: string): string {
+  if (message.toLowerCase().includes('bucket not found')) {
+    return 'Attachment storage is not configured. Missing Supabase bucket "context-block-attachments" (run migration 009_context_block_attachments.sql).'
+  }
+
+  return message
+}
