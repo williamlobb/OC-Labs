@@ -124,7 +124,7 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
               className={cn(
                 'max-w-[80%] rounded-xl px-4 py-2.5 text-sm',
                 msg.role === 'user'
-                  ? 'bg-blue-600 text-white dark:bg-blue-500 dark:text-white'
+                  ? 'bg-[#007AFF] text-white'
                   : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
               )}
             >
