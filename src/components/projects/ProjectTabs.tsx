@@ -8,7 +8,6 @@ const TABS = [
   { label: 'Overview', href: '' },
   { label: 'Context', href: '/context' },
   { label: 'Plan', href: '/plan' },
-  { label: 'Chat', href: '/chat' },
 ]
 
 interface ProjectTabsProps {

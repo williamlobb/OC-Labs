@@ -28,6 +28,18 @@ api/v1/: REST endpoints for client-side mutations
 ### ADR-006: Service role only for trusted server ops
 supabaseAdmin (src/lib/supabase/admin.ts) only in Route Handlers that need to bypass RLS. Never in Server Components or client.
 
+### ADR-007: Context blocks support auditable file attachments
+Context blocks now support optional file attachments (any type, up to 20MB) stored in Supabase Storage bucket `context-block-attachments`, with metadata on `context_blocks` (`attachment_*` columns + `author_name`). Description/body remains required. Storage policies allow authenticated reads and owner/contributor writes scoped by project-id path prefix.
+
+### ADR-008: Plan tasks are dependency-aware
+`tasks.depends_on` is now used end-to-end. AI decomposition can propose dependency indices, plan creation maps those indices to real task IDs, and task updates enforce dependency validity (no self-dependency, same-project task IDs only). A task cannot be moved to `done` while any dependency is not `done`. Plan UI surfaces readiness and offers a "ready now only" filter.
+
+### ADR-009: Jira sync is manual, one-way, and idempotent (MVP)
+Plan tasks can be synced from OC Labs to Jira via `POST /api/v1/projects/[id]/jira/sync` (owner/contributor only). Unsynced tasks create Jira issues and persist mapping on `tasks` (`jira_issue_key`, `jira_issue_url`, `jira_synced_at`); already-synced tasks are skipped on retry. Scope is intentionally MVP: no inbound Jira webhooks, no dependency link sync, no background jobs.
+
+### ADR-010: Jira Epics auto-created per project, tasks linked as children
+When a new OC Labs project is created, `createEpic()` fires asynchronously (never blocks project creation) to create a Jira Epic with the project title in the configured Jira project (key from JIRA_PROJECT_KEY env var). Epic key is stored on `projects.jira_epic_key`. When tasks are synced, `createIssue()` accepts `epicKey` param and links via `parent: { key }` field (works for both team-managed and classic projects; deprecated `customfield_10014` not used). Fire-and-forget: if Jira is unavailable, tasks sync without Epic links (graceful degradation). Jira env var guard: Epic creation runs only if all four Jira env vars (JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY) are present.
+
 ## Stack
 
 Framework: Next.js 15 App Router
@@ -115,6 +127,7 @@ npx tsc --noEmit   — type check
 
 - cookies() from next/headers is async in Next.js 15/16 — must await cookies()
 - AGENTS.md enforces reading node_modules/next/dist/docs/ — directory does not exist in this repo; skip that step
+- Context attachment uploads require Supabase migration `009_context_block_attachments.sql`; if the bucket `context-block-attachments` is missing, API calls return “Bucket not found”
 - CoWork API not yet live — fetchCoWorkProfile() returns null gracefully when creds missing
 - .env.local exists (created by CoWork). npm run build requires NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY
 - Slack webhook URLs must NOT be committed to memory/core.md — GitHub secret scanning blocks push. Reference env var names only.
