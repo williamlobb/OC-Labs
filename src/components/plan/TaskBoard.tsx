@@ -42,6 +42,8 @@ function normalizeTask(task: Task): Task {
 export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewerRole }: TaskBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(() => initialTasks.map(normalizeTask))
   const [decomposing, setDecomposing] = useState(false)
+  const [syncingToJira, setSyncingToJira] = useState(false)
+  const [jiraSyncMessage, setJiraSyncMessage] = useState<{ text: string; isError: boolean } | null>(null)
   const [readyOnly, setReadyOnly] = useState(false)
   const overdueBlockedTasks = getOverdueBlockedTasks(tasks)
   const shouldPromptOwner = viewerRole === 'owner' && overdueBlockedTasks.length > 0
@@ -145,6 +147,35 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
     }
   }
 
+  async function handleSyncToJira() {
+    if (syncingToJira) return
+
+    setSyncingToJira(true)
+    setJiraSyncMessage(null)
+
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/jira/sync`, { method: 'POST' })
+      const payload = await res.json().catch(() => null)
+
+      if (!res.ok) {
+        const error = typeof payload?.error === 'string' ? payload.error : 'Jira sync failed.'
+        setJiraSyncMessage({ text: error, isError: true })
+        return
+      }
+
+      const created = typeof payload?.created === 'number' ? payload.created : 0
+      const skipped = typeof payload?.skipped === 'number' ? payload.skipped : 0
+      const failed = typeof payload?.failed === 'number' ? payload.failed : 0
+      const summary = `Jira sync: ${created} created, ${skipped} skipped, ${failed} failed.`
+
+      setJiraSyncMessage({ text: summary, isError: failed > 0 })
+    } catch {
+      setJiraSyncMessage({ text: 'Jira sync failed. Please try again.', isError: true })
+    } finally {
+      setSyncingToJira(false)
+    }
+  }
+
   if (tasks.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-zinc-300 py-16 text-center dark:border-zinc-700">
@@ -205,6 +236,19 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
 
         {canEdit && (
           <button
+            onClick={handleSyncToJira}
+            disabled={syncingToJira}
+            className={cn(
+              'rounded-md border border-zinc-200 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800',
+              syncingToJira && 'opacity-60 cursor-not-allowed'
+            )}
+          >
+            {syncingToJira ? 'Syncing Jira…' : 'Sync to Jira'}
+          </button>
+        )}
+
+        {canEdit && (
+          <button
             onClick={handleDecompose}
             disabled={decomposing}
             className={cn(
@@ -216,6 +260,19 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
           </button>
         )}
       </div>
+
+      {jiraSyncMessage && (
+        <p
+          className={cn(
+            'text-xs',
+            jiraSyncMessage.isError
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-emerald-700 dark:text-emerald-400'
+          )}
+        >
+          {jiraSyncMessage.text}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {COLUMNS.map((col) => {

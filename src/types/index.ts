@@ -98,6 +98,9 @@ export interface Task {
   assignee_id?: string
   assigned_to_agent: boolean
   depends_on: string[]
+  jira_issue_key?: string
+  jira_issue_url?: string
+  jira_synced_at?: string
   created_by: string
   created_at: string
   updated_at: string
