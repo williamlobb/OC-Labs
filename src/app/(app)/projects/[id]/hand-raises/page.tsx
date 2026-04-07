@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
-import { HandRaiseRequests } from '@/components/projects/HandRaiseRequests'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { HandRaiseRequests } from '@/components/projects/HandRaiseRequests'
+import { getAuthenticatedUser, getCachedProject } from '@/lib/data/project-queries'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -15,13 +16,9 @@ type MemberRow = {
 export default async function HandRaisesPage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('id, owner_id')
-    .eq('id', id)
-    .single()
+  const user = await getAuthenticatedUser()
+  const project = await getCachedProject(id)
 
   if (!project) notFound()
   if (project.owner_id !== user?.id) notFound()

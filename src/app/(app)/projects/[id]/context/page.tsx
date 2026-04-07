@@ -2,6 +2,11 @@ import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ContextWorkbench } from '@/components/context/ContextWorkbench'
 import { buildContextAttachmentUrl } from '@/lib/context/attachments'
+import {
+  getAuthenticatedUser,
+  getCachedProject,
+  getCachedUserMembership,
+} from '@/lib/data/project-queries'
 import type { ContextBlock } from '@/types'
 
 interface PageProps {
@@ -12,24 +17,19 @@ export default async function ContextPage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
+  const project = await getCachedProject(id)
 
-  const [{ data: project }, { data: blocks }, { data: membership }] = await Promise.all([
-    supabase.from('projects').select('id, title').eq('id', id).single(),
+  if (!project) notFound()
+
+  const [{ data: blocks }, membership] = await Promise.all([
     supabase
       .from('context_blocks')
       .select('*')
       .eq('project_id', id)
       .order('created_at', { ascending: true }),
-    supabase
-      .from('project_members')
-      .select('role')
-      .eq('project_id', id)
-      .eq('user_id', user?.id ?? '')
-      .maybeSingle(),
+    getCachedUserMembership(id, user?.id ?? ''),
   ])
-
-  if (!project) notFound()
 
   const canEdit = !!membership && ['owner', 'contributor'].includes(membership.role)
   const initialBlocks = ((blocks ?? []) as ContextBlock[]).map((block) => ({

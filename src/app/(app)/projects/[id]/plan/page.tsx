@@ -1,6 +1,11 @@
 import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { TaskBoard } from '@/components/plan/TaskBoard'
+import {
+  getAuthenticatedUser,
+  getCachedProject,
+  getCachedUserMembership,
+} from '@/lib/data/project-queries'
 import type { Task, MemberRole } from '@/types'
 
 interface PageProps {
@@ -11,29 +16,23 @@ export default async function PlanPage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const [{ data: project }, { data: tasks }, { data: members }, { data: membership }] =
-    await Promise.all([
-      supabase.from('projects').select('id, title').eq('id', id).single(),
-      supabase
-        .from('tasks')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('project_members')
-        .select('user_id, role, users(name)')
-        .eq('project_id', id),
-      supabase
-        .from('project_members')
-        .select('role')
-        .eq('project_id', id)
-        .eq('user_id', user?.id ?? '')
-        .maybeSingle(),
-    ])
+  const user = await getAuthenticatedUser()
+  const project = await getCachedProject(id)
 
   if (!project) notFound()
+
+  const [{ data: tasks }, { data: members }, membership] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('*')
+      .eq('project_id', id)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('project_members')
+      .select('user_id, role, users(name)')
+      .eq('project_id', id),
+    getCachedUserMembership(id, user?.id ?? ''),
+  ])
 
   const canEdit = !!membership && ['owner', 'contributor'].includes(membership.role)
   const viewerRole = (membership?.role ?? null) as MemberRole | null

@@ -1,20 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { cn } from '@/lib/utils/cn'
 import type { ChatMessage } from '@/types'
 import { ProjectChat } from './ProjectChat'
 
 interface ProjectChatPanelProps {
   projectId: string
-  initialMessages: ChatMessage[]
 }
 
-export function ProjectChatPanel({
-  projectId,
-  initialMessages,
-}: ProjectChatPanelProps) {
+export function ProjectChatPanel({ projectId }: ProjectChatPanelProps) {
   const [collapsed, setCollapsed] = useState(true)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [loading, setLoading] = useState(false)
+  const fetchedRef = useRef(false)
+
+  async function handleOpen() {
+    setCollapsed(false)
+    if (fetchedRef.current) return
+    fetchedRef.current = true
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/chat`)
+      if (res.ok) {
+        const { messages: fetched } = await res.json()
+        setMessages(fetched ?? [])
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -26,7 +41,7 @@ export function ProjectChatPanel({
       {collapsed ? (
         <button
           type="button"
-          onClick={() => setCollapsed(false)}
+          onClick={handleOpen}
           className="group flex h-full w-full items-center justify-center px-4 text-zinc-600 transition-colors duration-200 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100"
           aria-label="Open project chat"
           title="Open project chat"
@@ -75,7 +90,17 @@ export function ProjectChatPanel({
           </button>
 
           <div className="min-h-0 flex-1 overflow-hidden rounded-2xl pb-1 pt-2">
-            <ProjectChat projectId={projectId} initialMessages={initialMessages} />
+            {loading ? (
+              <div className="flex h-full items-center justify-center">
+                <span className="inline-block h-4 w-4 animate-pulse rounded-full bg-zinc-300 dark:bg-zinc-600" />
+              </div>
+            ) : (
+              <ProjectChat
+                projectId={projectId}
+                initialMessages={messages}
+                onMessagesChange={setMessages}
+              />
+            )}
           </div>
         </div>
       )}

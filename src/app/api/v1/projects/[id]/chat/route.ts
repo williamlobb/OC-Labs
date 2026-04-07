@@ -7,6 +7,46 @@ export const maxDuration = 60
 
 const AGENT_URL = process.env.AGENT_URL
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Response> {
+  const { id } = await params
+  const supabase = await createServerSupabaseClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Gate on membership or ownership
+  const { data: project } = await supabase
+    .from('projects')
+    .select('owner_id')
+    .eq('id', id)
+    .single()
+
+  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  if (project.owner_id !== user.id) {
+    const { data: membership } = await supabase
+      .from('project_members')
+      .select('role')
+      .eq('project_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!membership) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { data: messages } = await supabase
+    .from('project_chat_messages')
+    .select('*')
+    .eq('project_id', id)
+    .order('created_at', { ascending: true })
+    .limit(50)
+
+  return NextResponse.json({ messages: messages ?? [] })
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

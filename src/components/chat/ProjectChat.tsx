@@ -7,10 +7,19 @@ import type { ChatMessage } from '@/types'
 interface ProjectChatProps {
   projectId: string
   initialMessages: ChatMessage[]
+  onMessagesChange?: (messages: ChatMessage[]) => void
 }
 
-export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
+export function ProjectChat({ projectId, initialMessages, onMessagesChange }: ProjectChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+
+  function updateMessages(updater: (prev: ChatMessage[]) => ChatMessage[]) {
+    setMessages((prev) => {
+      const next = updater(prev)
+      onMessagesChange?.(next)
+      return next
+    })
+  }
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -32,11 +41,11 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
       content: text,
       created_at: new Date().toISOString(),
     }
-    setMessages((prev) => [...prev, userMsg])
+    updateMessages((prev) => [...prev, userMsg])
     setStreaming(true)
 
     const assistantId = crypto.randomUUID()
-    setMessages((prev) => [
+    updateMessages((prev) => [
       ...prev,
       {
         id: assistantId,
@@ -55,7 +64,7 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
       })
 
       if (!res.ok || !res.body) {
-        setMessages((prev) =>
+        updateMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId ? { ...m, content: 'Something went wrong.' } : m
           )
@@ -72,12 +81,12 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
         if (done) break
         accumulated += decoder.decode(value, { stream: true })
         const snap = accumulated
-        setMessages((prev) =>
+        updateMessages((prev) =>
           prev.map((m) => (m.id === assistantId ? { ...m, content: snap } : m))
         )
       }
     } catch {
-      setMessages((prev) =>
+      updateMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId ? { ...m, content: 'Something went wrong.' } : m
         )

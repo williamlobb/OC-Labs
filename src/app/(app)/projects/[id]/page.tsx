@@ -4,6 +4,11 @@ import { TeamList } from '@/components/projects/TeamList'
 import { UpdatesFeed } from '@/components/projects/UpdatesFeed'
 import { RepoPreview } from '@/components/projects/RepoPreview'
 import { PostUpdateForm } from '@/components/projects/PostUpdateForm'
+import {
+  getAuthenticatedUser,
+  getCachedProject,
+  getCachedUserMembership,
+} from '@/lib/data/project-queries'
 import type { MemberRole, ProjectUpdate } from '@/types'
 
 interface PageProps {
@@ -15,17 +20,13 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
   const { id } = await params
   const { compose, draft } = await searchParams
   const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const user = await getAuthenticatedUser()
+  const project = await getCachedProject(id)
 
   if (!project) notFound()
 
-  const [{ data: members }, { data: updates }, { data: membership }] = await Promise.all([
+  const [{ data: members }, { data: updates }, membership] = await Promise.all([
     supabase
       .from('project_members')
       .select('user_id, role, users(name, profile_photo_url)')
@@ -36,12 +37,7 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
       .select('*')
       .eq('project_id', id)
       .order('posted_at', { ascending: false }),
-    supabase
-      .from('project_members')
-      .select('role')
-      .eq('project_id', id)
-      .eq('user_id', user?.id ?? '')
-      .maybeSingle(),
+    getCachedUserMembership(id, user?.id ?? ''),
   ])
 
   const canPostUpdate = !!membership && ['owner', 'contributor'].includes(membership.role)

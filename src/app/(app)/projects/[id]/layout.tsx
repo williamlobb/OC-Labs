@@ -1,10 +1,15 @@
 import { notFound } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { ProjectActions } from '@/components/projects/ProjectActions'
 import { ProjectTabs } from '@/components/projects/ProjectTabs'
 import { ProjectChatPanel } from '@/components/chat/ProjectChatPanel'
-import type { Project, ChatMessage, MemberRole } from '@/types'
+import {
+  getAuthenticatedUser,
+  getCachedProject,
+  getCachedUserMembership,
+  getCachedUserVote,
+} from '@/lib/data/project-queries'
+import type { Project, MemberRole } from '@/types'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -13,30 +18,13 @@ interface LayoutProps {
 
 export default async function ProjectLayout({ children, params }: LayoutProps) {
   const { id } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getAuthenticatedUser()
 
-  const [{ data: project }, { data: userVote }, { data: userMembership }, { data: chatMessages }] = await Promise.all([
-    supabase.from('projects').select('*').eq('id', id).single(),
-    supabase
-      .from('votes')
-      .select('project_id')
-      .eq('project_id', id)
-      .eq('user_id', user?.id ?? '')
-      .maybeSingle(),
-    supabase
-      .from('project_members')
-      .select('role')
-      .eq('project_id', id)
-      .eq('user_id', user?.id ?? '')
-      .maybeSingle(),
-    supabase
-      .from('project_chat_messages')
-      .select('*')
-      .eq('project_id', id)
-      .order('created_at', { ascending: true })
-      .limit(50),
+  const [project, userVote, userMembership] = await Promise.all([
+    getCachedProject(id),
+    getCachedUserVote(id, user?.id ?? ''),
+    getCachedUserMembership(id, user?.id ?? ''),
   ])
 
   if (!project) notFound()
@@ -68,10 +56,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
       <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
         <div className="mx-auto max-w-4xl pointer-events-auto">
           {isChatMember ? (
-            <ProjectChatPanel
-              projectId={id}
-              initialMessages={(chatMessages ?? []) as ChatMessage[]}
-            />
+            <ProjectChatPanel projectId={id} />
           ) : (
             <div className="rounded-2xl border border-white/30 bg-white/70 px-4 py-3 text-center text-xs text-zinc-400 shadow-2xl backdrop-blur-xl dark:border-zinc-700/40 dark:bg-zinc-900/70">
               Join this project to access chat.
