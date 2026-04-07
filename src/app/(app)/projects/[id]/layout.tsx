@@ -4,7 +4,7 @@ import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { ProjectActions } from '@/components/projects/ProjectActions'
 import { ProjectTabs } from '@/components/projects/ProjectTabs'
 import { ProjectChatPanel } from '@/components/chat/ProjectChatPanel'
-import type { Project, ChatMessage } from '@/types'
+import type { Project, ChatMessage, MemberRole } from '@/types'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -42,8 +42,9 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
   if (!project) notFound()
 
   const isOwner = project.owner_id === user?.id
+  const membershipRole = (userMembership?.role ?? null) as MemberRole | null
   const hasVoted = !!userVote
-  const hasJoined = !!userMembership
+  const hasRaisedHand = membershipRole === 'interested'
   const isChatMember = isOwner || !!userMembership
 
   return (
@@ -54,11 +55,12 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
         projectId={id}
         initialVoteCount={project.vote_count}
         initialHasVoted={hasVoted}
-        initialHasJoined={hasJoined}
+        initialHasRaisedHand={hasRaisedHand}
+        initialMembershipRole={membershipRole}
         isOwner={isOwner}
       />
 
-      <ProjectTabs projectId={id} />
+      <ProjectTabs projectId={id} isOwner={isOwner} />
 
       <div>{children}</div>
 
