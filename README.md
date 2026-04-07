@@ -3,7 +3,7 @@
 Internal project discovery and collaboration board for the Omnia Collective.
 
 **Stack:** Next.js · TypeScript · Supabase · Tailwind CSS
-**Deployment:** Vercel → [labs.theoc.ai](https://labs.theoc.ai)
+**Deployment:** Vercel → [oclabs.space](https://oclabs.space)
 **Handover doc:** [Full Build Handover (oclabs_handover.docx)](https://github.com/williamlobb/OC-Labs)
 
 ---
