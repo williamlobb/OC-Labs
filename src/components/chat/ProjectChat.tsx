@@ -95,7 +95,7 @@ export function ProjectChat({ projectId, initialMessages }: ProjectChatProps) {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-16rem)] min-h-96">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
