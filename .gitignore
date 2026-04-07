@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local pipeline activity log (keep local, do not commit)
+thoughts/shared/logs/events.jsonl
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

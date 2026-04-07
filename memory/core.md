@@ -40,6 +40,9 @@ Plan tasks can be synced from OC Labs to Jira via `POST /api/v1/projects/[id]/ji
 ### ADR-010: Jira Epics auto-created per project, tasks linked as children
 When a new OC Labs project is created, `createEpic()` fires asynchronously (never blocks project creation) to create a Jira Epic with the project title in the configured Jira project (key from JIRA_PROJECT_KEY env var). Epic key is stored on `projects.jira_epic_key`. When tasks are synced, `createIssue()` accepts `epicKey` param and links via `parent: { key }` field (works for both team-managed and classic projects; deprecated `customfield_10014` not used). Fire-and-forget: if Jira is unavailable, tasks sync without Epic links (graceful degradation). Jira env var guard: Epic creation runs only if all four Jira env vars (JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY) are present.
 
+### ADR-011: Hand raises are owner-approved before joining the team
+`project_members.role='interested'` is treated as a pending join request, not an approved team member. Project owners have a dedicated `/projects/[id]/hand-raises` review tab to approve requests; approval updates role from `interested` to `contributor`. Overview Team lists only approved roles (`owner`, `contributor`, `observer`), so pending requests do not appear as joined members.
+
 ## Stack
 
 Framework: Next.js 15 App Router
@@ -54,7 +57,7 @@ Deployment: Vercel (oclabs.space)
 ## Key File Map
 
 src/lib/supabase/ — client.ts, server.ts, admin.ts, middleware.ts
-src/lib/github/repo.ts — README preview fetcher
+src/lib/github/repo.ts — GitHub repo metadata fetcher + owner/repo URL fallback parser
 src/lib/notifications/slack.ts — webhook helpers (notifyProjectUpdate, notifyMilestone, notifyNeedsHelp, dmOwnerRaisedHand)
 src/lib/cowork/client.ts — profile sync (fetchCoWorkProfile)
 src/lib/utils/avatar.ts — deterministic colour from userId
@@ -132,3 +135,4 @@ npx tsc --noEmit   — type check
 - .env.local exists (created by CoWork). npm run build requires NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY
 - Slack webhook URLs must NOT be committed to memory/core.md — GitHub secret scanning blocks push. Reference env var names only.
 - middleware.ts exempts /signup and /login and /auth/* — all other routes require auth
+- `thoughts/shared/logs/events.jsonl` is local telemetry; keep it git-ignored and untracked to avoid branch noise
