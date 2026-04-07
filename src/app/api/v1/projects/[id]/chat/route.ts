@@ -5,9 +5,11 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 export const runtime = 'edge'
 export const maxDuration = 60
 
-// Normalise to https — Fly.io force_https redirects http→https with a 301,
-// which causes fetch() to downgrade POST→GET, producing a 405 from the Go handler.
-const AGENT_URL = (process.env.AGENT_URL ?? '').replace(/^http:\/\//, 'https://')
+// Normalise URL — strip trailing slash and ensure https. Both issues cause Go's mux
+// to issue a 301 redirect which downgrades POST→GET, producing 405 Method Not Allowed.
+const AGENT_URL = (process.env.AGENT_URL ?? '')
+  .replace(/^http:\/\//, 'https://')
+  .replace(/\/$/, '')
 
 export async function GET(
   _req: NextRequest,
