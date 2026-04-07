@@ -118,6 +118,7 @@ export async function POST(
       auth_token: authToken,
       base_url: baseURL,
       github_repos: project?.github_repos ?? [],
+      github_tools: buildGithubToolsHint(id, project?.github_repos ?? [], baseURL),
     }),
   })
 
@@ -199,4 +200,32 @@ function extractAuthToken(cookieHeader: string): string {
   // Single cookie: sb-xxx-auth-token=...
   const single = cookies.find((c) => c.includes('-auth-token='))
   return single ? single.split('=').slice(1).join('=') : ''
+}
+
+/**
+ * Describes the GitHub tools available to the agent for this project.
+ * The agent should only call these when the user explicitly asks about the repo —
+ * not proactively on every message.
+ *
+ * Tools:
+ *   GET {base_url}/api/v1/projects/{id}/github/summary
+ *     → repo description, language, last deployment status, last 3 commits
+ *     Use when: user asks about repo status, recent changes, or deployment health.
+ *
+ *   GET {base_url}/api/v1/projects/{id}/github/file?repo={owner/repo}&path={path}
+ *     → raw content of a specific file
+ *     Use when: user asks to read or review a specific file.
+ */
+function buildGithubToolsHint(
+  projectId: string,
+  repos: string[],
+  baseURL: string,
+): { available: boolean; summaryUrl: string; fileUrl: string; repos: string[] } | null {
+  if (repos.length === 0) return null
+  return {
+    available: true,
+    summaryUrl: `${baseURL}/api/v1/projects/${projectId}/github/summary`,
+    fileUrl: `${baseURL}/api/v1/projects/${projectId}/github/file`,
+    repos,
+  }
 }
