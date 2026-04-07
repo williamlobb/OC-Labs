@@ -73,7 +73,7 @@ export async function POST(
   }
 
   const [{ data: project, error: projectError }, { data: tasks, error: tasksError }] = await Promise.all([
-    supabase.from('projects').select('id, title').eq('id', id).single(),
+    supabase.from('projects').select('id, title, jira_epic_key').eq('id', id).single(),
     supabase
       .from('tasks')
       .select('id, title, body, jira_issue_key')
@@ -87,6 +87,9 @@ export async function POST(
 
   const jiraProjectKey = process.env.JIRA_PROJECT_KEY!.trim()
   const jiraIssueType = process.env.JIRA_ISSUE_TYPE?.trim() || 'Task'
+  // jira_epic_key may be null if Jira was unavailable at project creation time.
+  // In that case, issues are created without an Epic link (graceful degradation).
+  const epicKey = (project as { jira_epic_key?: string | null }).jira_epic_key ?? undefined
 
   let created = 0
   let skipped = 0
@@ -105,6 +108,7 @@ export async function POST(
         description: buildIssueDescription(project.id, project.title, task.title, task.body),
         projectKey: jiraProjectKey,
         issueType: jiraIssueType,
+        epicKey,
       })
 
       const nowIso = new Date().toISOString()
