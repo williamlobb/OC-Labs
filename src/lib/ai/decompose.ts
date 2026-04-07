@@ -7,6 +7,7 @@ interface DecomposedTask {
   body: string
   status: 'todo'
   assigned_to_agent: boolean
+  depends_on_indices?: number[]
 }
 
 interface ContextBlock {
@@ -18,12 +19,29 @@ interface ContextBlock {
 function isValidDecomposedTask(item: unknown): item is DecomposedTask {
   if (typeof item !== 'object' || item === null) return false
   const t = item as Record<string, unknown>
+  const dependsOn = t.depends_on_indices
+  const hasValidDependsOn =
+    dependsOn === undefined ||
+    (Array.isArray(dependsOn) &&
+      dependsOn.every((value) => Number.isInteger(value) && value >= 0))
   return (
     typeof t.title === 'string' && t.title.trim().length > 0 &&
     typeof t.body === 'string' && t.body.trim().length > 0 &&
     t.status === 'todo' &&
-    typeof t.assigned_to_agent === 'boolean'
+    typeof t.assigned_to_agent === 'boolean' &&
+    hasValidDependsOn
   )
+}
+
+function normalizeDependencyIndices(indices: number[]): number[] {
+  const seen = new Set<number>()
+  const normalized: number[] = []
+  for (const value of indices) {
+    if (seen.has(value)) continue
+    seen.add(value)
+    normalized.push(value)
+  }
+  return normalized
 }
 
 export async function decomposeProject(
@@ -51,9 +69,15 @@ Return a JSON array of tasks. Each task must have:
 - body: 1-2 sentence description of what needs to be done
 - status: always "todo"
 - assigned_to_agent: true if this task is best suited for an AI agent (code generation, research, documentation), false for human tasks
+- depends_on_indices: array of zero-based indexes of prerequisite tasks (can be empty [])
+
+Rules for depends_on_indices:
+- Keep dependencies minimal and acyclic
+- A task can only depend on earlier tasks in the array
+- If no prerequisite exists, return []
 
 Return ONLY valid JSON, no markdown, no explanation. Example:
-[{"title":"Set up database schema","body":"Create tables and RLS policies for the core data model.","status":"todo","assigned_to_agent":false}]`
+[{"title":"Set up database schema","body":"Create tables and RLS policies for the core data model.","status":"todo","assigned_to_agent":false,"depends_on_indices":[]}]`
 
   try {
     const message = await client.messages.create({
@@ -68,7 +92,12 @@ Return ONLY valid JSON, no markdown, no explanation. Example:
     // Validate each element has the required fields with the correct types before
     // inserting into the DB — malformed LLM output would otherwise cause constraint
     // violations or silently insert null values.
-    return parsed.filter(isValidDecomposedTask)
+    return parsed
+      .filter(isValidDecomposedTask)
+      .map((task) => ({
+        ...task,
+        depends_on_indices: normalizeDependencyIndices(task.depends_on_indices ?? []),
+      }))
   } catch {
     return []
   }
