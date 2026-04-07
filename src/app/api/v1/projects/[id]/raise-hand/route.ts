@@ -38,8 +38,14 @@ export async function POST(
     .maybeSingle()
 
   let hasJoined: boolean
+  let membershipRole: 'owner' | 'contributor' | 'observer' | 'interested' | null
 
-  if (existing) {
+  if (existing && existing.role !== 'interested') {
+    // Already approved on the team; this endpoint should not remove membership.
+    return NextResponse.json({ hasJoined: true, membershipRole: existing.role })
+  }
+
+  if (existing && existing.role === 'interested') {
     // Remove interest
     await supabase
       .from('project_members')
@@ -47,6 +53,7 @@ export async function POST(
       .eq('project_id', id)
       .eq('user_id', user.id)
     hasJoined = false
+    membershipRole = null
   } else {
     // Add interest
     await supabase.from('project_members').insert({
@@ -55,6 +62,7 @@ export async function POST(
       role: 'interested',
     })
     hasJoined = true
+    membershipRole = 'interested'
 
     // Notify owner — fire and forget
     const { data: raisedByUser } = await supabase
@@ -76,5 +84,5 @@ export async function POST(
     ).catch((err) => console.error('Slack notify failed:', err))
   }
 
-  return NextResponse.json({ hasJoined })
+  return NextResponse.json({ hasJoined, membershipRole })
 }

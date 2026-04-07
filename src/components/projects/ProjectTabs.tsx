@@ -12,15 +12,19 @@ const TABS = [
 
 interface ProjectTabsProps {
   projectId: string
+  isOwner: boolean
 }
 
-export function ProjectTabs({ projectId }: ProjectTabsProps) {
+export function ProjectTabs({ projectId, isOwner }: ProjectTabsProps) {
   const pathname = usePathname()
   const base = `/projects/${projectId}`
+  const tabs = isOwner
+    ? [...TABS, { label: 'Hand Raises', href: '/hand-raises' }]
+    : TABS
 
   return (
     <nav className="flex gap-1 border-b border-zinc-200 dark:border-zinc-700">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const href = `${base}${tab.href}`
         const isActive = tab.href === ''
           ? pathname === base || pathname === `${base}/`

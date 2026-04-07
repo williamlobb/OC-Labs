@@ -16,7 +16,8 @@ function setup(overrides: Partial<Parameters<typeof ProjectActions>[0]> = {}) {
     projectId: 'proj-1',
     initialVoteCount: 5,
     initialHasVoted: false,
-    initialHasJoined: false,
+    initialHasRaisedHand: false,
+    initialMembershipRole: null,
     isOwner: false,
     ...overrides,
   }
@@ -95,12 +96,17 @@ describe('ProjectActions — join button', () => {
   })
 
   it('shows Raise Hand when not joined', () => {
-    setup({ initialHasJoined: false })
+    setup({ initialHasRaisedHand: false })
     expect(screen.getByRole('button', { name: /raise hand/i })).toBeInTheDocument()
   })
 
-  it('shows Joined when already joined', () => {
-    setup({ initialHasJoined: true })
-    expect(screen.getByRole('button', { name: /joined/i })).toBeInTheDocument()
+  it('shows Hand Raised when already raised', () => {
+    setup({ initialHasRaisedHand: true, initialMembershipRole: 'interested' })
+    expect(screen.getByRole('button', { name: /hand raised/i })).toBeInTheDocument()
+  })
+
+  it('hides raise hand when already an approved member', () => {
+    setup({ initialMembershipRole: 'contributor' })
+    expect(screen.queryByRole('button', { name: /raise hand/i })).not.toBeInTheDocument()
   })
 })
