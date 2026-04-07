@@ -32,14 +32,27 @@ describe('decomposeProject — LLM output validation', () => {
 
   it('returns valid tasks when the model returns a well-formed array', async () => {
     mockCreate.mockResolvedValue(makeResponse(JSON.stringify([
-      { title: 'Set up DB', body: 'Create schema.', status: 'todo', assigned_to_agent: false },
-      { title: 'Write tests', body: 'Add unit tests.', status: 'todo', assigned_to_agent: true },
+      {
+        title: 'Set up DB',
+        body: 'Create schema.',
+        status: 'todo',
+        assigned_to_agent: false,
+        depends_on_indices: [],
+      },
+      {
+        title: 'Write tests',
+        body: 'Add unit tests.',
+        status: 'todo',
+        assigned_to_agent: true,
+        depends_on_indices: [0],
+      },
     ])))
 
     const result = await decomposeProject('My Project', 'A summary', [])
     expect(result).toHaveLength(2)
     expect(result[0].title).toBe('Set up DB')
     expect(result[1].assigned_to_agent).toBe(true)
+    expect(result[1].depends_on_indices).toEqual([0])
   })
 
   it('filters out items missing required fields', async () => {
@@ -75,6 +88,45 @@ describe('decomposeProject — LLM output validation', () => {
 
     const result = await decomposeProject('My Project', 'A summary', [])
     expect(result).toHaveLength(1)
+  })
+
+  it('normalizes duplicate depends_on_indices values', async () => {
+    mockCreate.mockResolvedValue(makeResponse(JSON.stringify([
+      {
+        title: 'Good',
+        body: 'Fine.',
+        status: 'todo',
+        assigned_to_agent: false,
+        depends_on_indices: [0, 1, 1, 2, 2],
+      },
+    ])))
+
+    const result = await decomposeProject('My Project', 'A summary', [])
+    expect(result).toHaveLength(1)
+    expect(result[0].depends_on_indices).toEqual([0, 1, 2])
+  })
+
+  it('filters out items with invalid depends_on_indices', async () => {
+    mockCreate.mockResolvedValue(makeResponse(JSON.stringify([
+      {
+        title: 'Valid',
+        body: 'Fine.',
+        status: 'todo',
+        assigned_to_agent: false,
+        depends_on_indices: [0],
+      },
+      {
+        title: 'Bad',
+        body: 'Invalid dependency values.',
+        status: 'todo',
+        assigned_to_agent: false,
+        depends_on_indices: ['1'],
+      },
+    ])))
+
+    const result = await decomposeProject('My Project', 'A summary', [])
+    expect(result).toHaveLength(1)
+    expect(result[0].title).toBe('Valid')
   })
 
   it('returns empty array when model returns a non-array', async () => {

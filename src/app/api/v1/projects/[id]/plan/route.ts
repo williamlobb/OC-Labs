@@ -45,6 +45,7 @@ export async function POST(
   }
 
   const rows = tasks.map((t) => ({
+    id: crypto.randomUUID(),
     project_id: id,
     title: t.title,
     body: t.body,
@@ -53,9 +54,23 @@ export async function POST(
     created_by: user.id,
   }))
 
+  const taskIdByIndex = rows.map((row) => row.id)
+
+  const rowsWithDependencies = rows.map((row, index) => {
+    const dependencyIndices = tasks[index]?.depends_on_indices ?? []
+    const dependsOn = dependencyIndices
+      .filter((depIndex) => depIndex >= 0 && depIndex < taskIdByIndex.length && depIndex !== index)
+      .map((depIndex) => taskIdByIndex[depIndex])
+
+    return {
+      ...row,
+      depends_on: Array.from(new Set(dependsOn)),
+    }
+  })
+
   const { data: inserted, error } = await supabase
     .from('tasks')
-    .insert(rows)
+    .insert(rowsWithDependencies)
     .select()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
+function parseDependencyIds(value: unknown): string[] | null {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) return null
+  if (!value.every((item) => typeof item === 'string')) return null
+  return Array.from(new Set(value))
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -43,11 +50,42 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
   const { title, body: taskBody, assigned_to_agent = false } = body
+  const dependencyIds = parseDependencyIds(body.depends_on)
 
   if (!title?.trim()) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 })
+  }
+
+  if (dependencyIds === null) {
+    return NextResponse.json({ error: 'depends_on must be an array of task IDs' }, { status: 400 })
+  }
+
+  if (typeof assigned_to_agent !== 'boolean') {
+    return NextResponse.json({ error: 'assigned_to_agent must be a boolean' }, { status: 400 })
+  }
+
+  if (dependencyIds.length > 0) {
+    const { data: dependencyRows, error: dependencyError } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('project_id', id)
+      .in('id', dependencyIds)
+
+    if (dependencyError) {
+      return NextResponse.json({ error: dependencyError.message }, { status: 500 })
+    }
+
+    if ((dependencyRows ?? []).length !== dependencyIds.length) {
+      return NextResponse.json({ error: 'depends_on contains unknown task IDs' }, { status: 400 })
+    }
   }
 
   const { data: task, error } = await supabase
@@ -57,6 +95,7 @@ export async function POST(
       title: title.trim(),
       body: taskBody?.trim() ?? null,
       assigned_to_agent,
+      depends_on: dependencyIds,
       created_by: user.id,
     })
     .select()
