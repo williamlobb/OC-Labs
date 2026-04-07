@@ -79,10 +79,16 @@ export interface ContextBlock {
   id: string
   project_id: string
   author_id: string
+  author_name: string
   title: string
   body: string
   block_type: BlockType
   version: number
+  attachment_name?: string | null
+  attachment_path?: string | null
+  attachment_mime_type?: string | null
+  attachment_size_bytes?: number | null
+  attachment_url?: string | null
   created_at: string
   updated_at: string
 }

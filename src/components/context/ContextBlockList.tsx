@@ -22,6 +22,32 @@ interface ContextBlockListProps {
   onDelete: (blockId: string) => void
 }
 
+function getAttachmentExtension(name: string | null | undefined): string {
+  if (!name) return ''
+  const parts = name.toLowerCase().split('.')
+  return parts.length > 1 ? parts[parts.length - 1] ?? '' : ''
+}
+
+function isImageAttachment(block: ContextBlock): boolean {
+  const mime = block.attachment_mime_type?.toLowerCase() ?? ''
+  if (mime.startsWith('image/')) return true
+  const extension = getAttachmentExtension(block.attachment_name)
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(extension)
+}
+
+function isPdfAttachment(block: ContextBlock): boolean {
+  const mime = block.attachment_mime_type?.toLowerCase() ?? ''
+  if (mime === 'application/pdf') return true
+  return getAttachmentExtension(block.attachment_name) === 'pdf'
+}
+
+function formatFileSize(sizeBytes: number | null | undefined): string | null {
+  if (!sizeBytes || sizeBytes <= 0) return null
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export function ContextBlockList({ blocks, canEdit, onEdit, onDelete }: ContextBlockListProps) {
   if (blocks.length === 0) return null
 
@@ -63,6 +89,52 @@ export function ContextBlockList({ blocks, canEdit, onEdit, onDelete }: ContextB
           </div>
           <p className="mt-2 text-sm text-zinc-600 whitespace-pre-wrap dark:text-zinc-400">
             {block.body}
+          </p>
+
+          {block.attachment_url && block.attachment_name && (
+            <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800">
+              <a
+                href={block.attachment_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-medium text-zinc-700 underline underline-offset-2 hover:text-zinc-900 dark:text-zinc-200 dark:hover:text-zinc-100"
+              >
+                {block.attachment_name}
+              </a>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {(block.attachment_mime_type ?? 'Unknown type')}
+                {formatFileSize(block.attachment_size_bytes)
+                  ? ` • ${formatFileSize(block.attachment_size_bytes)}`
+                  : ''}
+              </p>
+
+              {isImageAttachment(block) && (
+                <div className="mt-2 overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={block.attachment_url}
+                    alt={block.attachment_name}
+                    loading="lazy"
+                    className="max-h-80 w-full object-contain bg-white dark:bg-zinc-900"
+                  />
+                </div>
+              )}
+
+              {isPdfAttachment(block) && (
+                <div className="mt-2 overflow-hidden rounded-md border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                  <iframe
+                    src={block.attachment_url}
+                    title={block.attachment_name}
+                    className="h-80 w-full"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-zinc-400">
+            Added by {block.author_name || 'Unknown'} on{' '}
+            {new Date(block.created_at).toLocaleString()}
           </p>
         </div>
       ))}
