@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
+const VALID_STATUSES = ['todo', 'in_progress', 'done', 'blocked'] as const
+type TaskStatus = (typeof VALID_STATUSES)[number]
+
 function parseDependencyIds(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null
   if (!value.every((item) => typeof item === 'string')) return null
   return Array.from(new Set(value))
+}
+
+function isTaskStatus(value: unknown): value is TaskStatus {
+  return typeof value === 'string' && (VALID_STATUSES as readonly string[]).includes(value)
 }
 
 export async function PATCH(
@@ -48,10 +55,9 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-  const VALID_STATUSES = ['todo', 'in_progress', 'done', 'blocked'] as const
-  let nextStatus = existingTask.status as (typeof VALID_STATUSES)[number]
+  let nextStatus = existingTask.status as TaskStatus
   if (body.status !== undefined) {
-    if (!VALID_STATUSES.includes(body.status)) {
+    if (!isTaskStatus(body.status)) {
       return NextResponse.json(
         { error: `status must be one of: ${VALID_STATUSES.join(', ')}` },
         { status: 400 }

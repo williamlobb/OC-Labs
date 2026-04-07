@@ -57,10 +57,12 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { title, body: taskBody, assigned_to_agent = false } = body
+  const title = typeof body.title === 'string' ? body.title.trim() : ''
+  const taskBody = body.body
+  const assignedToAgent = body.assigned_to_agent ?? false
   const dependencyIds = parseDependencyIds(body.depends_on)
 
-  if (!title?.trim()) {
+  if (!title) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 })
   }
 
@@ -68,8 +70,12 @@ export async function POST(
     return NextResponse.json({ error: 'depends_on must be an array of task IDs' }, { status: 400 })
   }
 
-  if (typeof assigned_to_agent !== 'boolean') {
+  if (typeof assignedToAgent !== 'boolean') {
     return NextResponse.json({ error: 'assigned_to_agent must be a boolean' }, { status: 400 })
+  }
+
+  if (taskBody !== undefined && taskBody !== null && typeof taskBody !== 'string') {
+    return NextResponse.json({ error: 'body must be a string or null' }, { status: 400 })
   }
 
   if (dependencyIds.length > 0) {
@@ -92,9 +98,9 @@ export async function POST(
     .from('tasks')
     .insert({
       project_id: id,
-      title: title.trim(),
-      body: taskBody?.trim() ?? null,
-      assigned_to_agent,
+      title,
+      body: typeof taskBody === 'string' ? taskBody.trim() : null,
+      assigned_to_agent: assignedToAgent,
       depends_on: dependencyIds,
       created_by: user.id,
     })
