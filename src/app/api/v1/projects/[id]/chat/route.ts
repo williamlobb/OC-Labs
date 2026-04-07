@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-export const runtime = 'edge'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { trimHistoryToBudget } from '@/lib/chat/trim-history'
-import Anthropic from '@anthropic-ai/sdk'
 
-const AGENT_URL = process.env.AGENT_URL // undefined in production until agent is deployed
-const HISTORY_CHAR_BUDGET = 24_000
+export const runtime = 'edge'
+
+const AGENT_URL = process.env.AGENT_URL
 
 export async function POST(
   req: NextRequest,
@@ -36,6 +33,10 @@ export async function POST(
 
   const trimmedMessage = message.trim()
 
+  if (!AGENT_URL) {
+    return NextResponse.json({ error: 'Agent not configured' }, { status: 503 })
+  }
+
   // Load project + history
   const [{ data: project }, { data: historyRows }] = await Promise.all([
     supabase.from('projects').select('github_repos').eq('id', id).single(),
@@ -55,37 +56,10 @@ export async function POST(
     author_id: user.id,
   })
 
-  // Route to Go agent if deployed, otherwise fall back to direct Anthropic
-  if (AGENT_URL) {
-    return proxyToAgent({
-      req, id, project, historyRows, trimmedMessage, user, AGENT_URL,
-    })
-  }
-
-  return directAnthropic({ id, project, historyRows, trimmedMessage, supabase })
-}
-
-// --- Go agent proxy (used when AGENT_URL is set) ---
-
-async function proxyToAgent({
-  req, id, project, historyRows, trimmedMessage, user, AGENT_URL,
-}: {
-  req: NextRequest
-  id: string
-  project: { github_repos: string[] } | null
-  historyRows: { role: string; content: string }[] | null
-  trimmedMessage: string
-  user: { id: string }
-  AGENT_URL: string
-}): Promise<Response> {
   const cookieHeader = req.headers.get('cookie') ?? ''
-  const authCookie = cookieHeader
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => c.startsWith('sb-') && c.includes('-auth-token='))
-  const authToken = authCookie?.split('=').slice(1).join('=') ?? ''
+  const authToken = extractAuthToken(cookieHeader)
 
-  const proto = req.headers.get('x-forwarded-proto') ?? 'http'
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
   const host = req.headers.get('host') ?? 'localhost:3000'
   const baseURL = `${proto}://${host}`
 
@@ -154,101 +128,26 @@ async function proxyToAgent({
   })
 }
 
-// --- Direct Anthropic fallback (used until Go agent is deployed) ---
+/**
+ * Extract the Supabase auth token value from the cookie header.
+ * Supabase SSR may chunk large JWTs across multiple cookies with a `.N` suffix
+ * (e.g. sb-xxx-auth-token.0, sb-xxx-auth-token.1). Reassemble them in order.
+ */
+function extractAuthToken(cookieHeader: string): string {
+  const cookies = cookieHeader
+    .split(';')
+    .map((c) => c.trim())
+    .filter((c) => c.startsWith('sb-') && c.includes('-auth-token'))
 
-async function directAnthropic({
-  id, project, historyRows, trimmedMessage, supabase,
-}: {
-  id: string
-  project: { github_repos: string[] } | null
-  historyRows: { role: string; content: string }[] | null
-  trimmedMessage: string
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
-}): Promise<Response> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  // Chunked cookies: sb-xxx-auth-token.0=..., sb-xxx-auth-token.1=...
+  const chunked = cookies
+    .filter((c) => /\.(\d+)=/.test(c))
+    .sort()
+  if (chunked.length > 0) {
+    return chunked.map((c) => c.split('=').slice(1).join('=')).join('')
+  }
 
-  const [{ data: projectFull }, { data: members }, { data: blocks }] = await Promise.all([
-    supabase.from('projects').select('id, title, summary, status, skills_needed').eq('id', id).single(),
-    supabase.from('project_members').select('role, users(name)').eq('project_id', id),
-    supabase.from('context_blocks').select('title, body, block_type').eq('project_id', id).order('created_at', { ascending: true }),
-  ])
-
-  type MemberRow = { role: string; users: { name: string } | { name: string }[] | null }
-  const teamLines = (members ?? []).map((m: MemberRow) => {
-    const u = Array.isArray(m.users) ? m.users[0] : m.users
-    return `- ${u?.name ?? 'Unknown'} (${m.role})`
-  })
-
-  const blockLines = (blocks ?? []).map(
-    (b) => `### [${b.block_type.toUpperCase()}] ${b.title}\n${b.body}`
-  )
-
-  const systemPrompt = `You are an AI assistant for the project "${projectFull?.title}".
-
-Project summary: ${projectFull?.summary ?? 'No summary provided.'}
-Status: ${projectFull?.status}
-Skills needed: ${(projectFull?.skills_needed ?? []).join(', ') || 'None listed'}
-
-Team:
-${teamLines.join('\n') || '- No team members listed'}
-
-${blockLines.length > 0 ? `Context:\n${blockLines.join('\n\n')}` : ''}
-
-Answer questions about this project concisely.`
-
-  const trimmedHistory = trimHistoryToBudget(historyRows ?? [], HISTORY_CHAR_BUDGET)
-  const messages: Anthropic.MessageParam[] = [
-    ...trimmedHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    { role: 'user', content: trimmedMessage },
-  ]
-
-  const encoder = new TextEncoder()
-  let fullResponse = ''
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        const anthropicStream = anthropic.messages.stream({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1024,
-          system: systemPrompt,
-          messages,
-        })
-
-        for await (const chunk of anthropicStream) {
-          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-            const text = chunk.delta.text
-            fullResponse += text
-            controller.enqueue(encoder.encode(text))
-          }
-        }
-
-        await supabaseAdmin.from('project_chat_messages').insert({
-          project_id: id,
-          role: 'assistant',
-          content: fullResponse,
-          author_id: null,
-        })
-        controller.close()
-      } catch (err) {
-        if (fullResponse) {
-          await supabaseAdmin.from('project_chat_messages').insert({
-            project_id: id,
-            role: 'assistant',
-            content: fullResponse,
-            author_id: null,
-          })
-        }
-        controller.error(err)
-      }
-    },
-  })
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Transfer-Encoding': 'chunked',
-      'X-Content-Type-Options': 'nosniff',
-    },
-  })
+  // Single cookie: sb-xxx-auth-token=...
+  const single = cookies.find((c) => c.includes('-auth-token='))
+  return single ? single.split('=').slice(1).join('=') : ''
 }
