@@ -136,3 +136,4 @@ npx tsc --noEmit   — type check
 - Slack webhook URLs must NOT be committed to memory/core.md — GitHub secret scanning blocks push. Reference env var names only.
 - middleware.ts exempts /signup and /login and /auth/* — all other routes require auth
 - `thoughts/shared/logs/events.jsonl` is local telemetry; keep it git-ignored and untracked to avoid branch noise
+- Use `React.cache()` wrappers in `src/lib/data/project-queries.ts` for shared per-request queries (user, project, membership, vote). Layout and child pages call the same cached function; only one DB round-trip fires per render. Add new cached fetchers here, not inline in page files.
