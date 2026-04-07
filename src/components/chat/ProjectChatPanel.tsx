@@ -55,7 +55,7 @@ export function ProjectChatPanel({
           <button
             type="button"
             onClick={() => setCollapsed(true)}
-            className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 rounded-t-xl rounded-b-lg border border-zinc-300/85 bg-white/95 px-3 py-1 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-zinc-600/80 dark:bg-zinc-900/90"
+            className="group absolute left-1/2 top-0 z-20 -translate-x-1/2 p-1 transition-transform duration-200 hover:-translate-y-0.5"
             aria-label="Collapse project chat"
             title="Minimize"
           >
