@@ -5,7 +5,9 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 export const runtime = 'edge'
 export const maxDuration = 60
 
-const AGENT_URL = process.env.AGENT_URL
+// Normalise to https — Fly.io force_https redirects http→https with a 301,
+// which causes fetch() to downgrade POST→GET, producing a 405 from the Go handler.
+const AGENT_URL = (process.env.AGENT_URL ?? '').replace(/^http:\/\//, 'https://')
 
 export async function GET(
   _req: NextRequest,
