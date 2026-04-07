@@ -13,14 +13,17 @@ import { NextRequest } from 'next/server'
 const { mockExchangeCode } = vi.hoisted(() => ({ mockExchangeCode: vi.fn() }))
 const { mockGetUser } = vi.hoisted(() => ({ mockGetUser: vi.fn() }))
 const { mockUpsertUser } = vi.hoisted(() => ({ mockUpsertUser: vi.fn() }))
+const { mockCreateServerClient } = vi.hoisted(() => ({
+  mockCreateServerClient: vi.fn(),
+}))
 
-vi.mock('@/lib/supabase/server', () => ({
-  createServerSupabaseClient: vi.fn().mockResolvedValue({
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: mockCreateServerClient.mockImplementation(() => ({
     auth: {
       exchangeCodeForSession: mockExchangeCode,
       getUser: mockGetUser,
     },
-  }),
+  })),
 }))
 
 vi.mock('@/lib/auth/upsert-user', () => ({
@@ -56,6 +59,7 @@ describe('GET /auth/callback', () => {
     mockExchangeCode.mockReset()
     mockGetUser.mockReset()
     mockUpsertUser.mockReset()
+    mockCreateServerClient.mockClear()
   })
 
   describe('missing code parameter', () => {
