@@ -26,7 +26,7 @@ func getProjectContext(ctx ToolContext, input json.RawMessage) (string, error) {
 	}
 	req.Header.Set("Cookie", fmt.Sprintf("sb-lmhntrqbxrzltppafjnu-auth-token=%s", ctx.AuthToken))
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := toolHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
@@ -63,7 +63,7 @@ func getTasks(ctx ToolContext, input json.RawMessage) (string, error) {
 	}
 	req.Header.Set("Cookie", fmt.Sprintf("sb-lmhntrqbxrzltppafjnu-auth-token=%s", ctx.AuthToken))
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := toolHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}

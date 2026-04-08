@@ -10,12 +10,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 )
 
 const (
 	defaultRepoFileListLimit = 80
 	maxRepoFileListLimit     = 200
 	maxRepoFileContentChars  = 3500
+	repoTreeCacheTTL         = 2 * time.Minute
 )
 
 // ReadRepoFileDef fetches any file from a linked GitHub repository by path.
@@ -53,12 +56,27 @@ type githubRepoRef struct {
 	CanonicalURL string
 }
 
+type gitTreeEntry struct {
+	Path string `json:"path"`
+	Type string `json:"type"`
+}
+
 type gitTreeResponse struct {
-	Tree []struct {
-		Path string `json:"path"`
-		Type string `json:"type"`
-	} `json:"tree"`
-	Truncated bool `json:"truncated"`
+	Tree      []gitTreeEntry `json:"tree"`
+	Truncated bool           `json:"truncated"`
+}
+
+type cachedRepoTree struct {
+	Entries      []gitTreeEntry
+	GitTruncated bool
+	ExpiresAt    time.Time
+}
+
+var repoTreeCache = struct {
+	mu   sync.RWMutex
+	data map[string]cachedRepoTree
+}{
+	data: map[string]cachedRepoTree{},
 }
 
 type listRepoFilesResult struct {
@@ -99,7 +117,7 @@ func readRepoFile(ctx ToolContext, input json.RawMessage) (string, error) {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := toolHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
@@ -261,10 +279,19 @@ func parseGitHubRepoRef(repoInput string) (githubRepoRef, error) {
 	}, nil
 }
 
-func fetchRepoTree(owner, repo string) (entries []struct {
-	Path string `json:"path"`
-	Type string `json:"type"`
-}, githubTruncated bool, err error) {
+func fetchRepoTree(owner, repo string) (entries []gitTreeEntry, githubTruncated bool, err error) {
+	cacheKey := strings.ToLower(owner + "/" + repo)
+	now := time.Now()
+
+	repoTreeCache.mu.RLock()
+	cached, ok := repoTreeCache.data[cacheKey]
+	repoTreeCache.mu.RUnlock()
+	if ok && now.Before(cached.ExpiresAt) {
+		copied := make([]gitTreeEntry, len(cached.Entries))
+		copy(copied, cached.Entries)
+		return copied, cached.GitTruncated, nil
+	}
+
 	repoMetaURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
 	metaReq, err := http.NewRequest(http.MethodGet, repoMetaURL, nil)
 	if err != nil {
@@ -274,7 +301,7 @@ func fetchRepoTree(owner, repo string) (entries []struct {
 		metaReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
-	metaResp, err := http.DefaultClient.Do(metaReq)
+	metaResp, err := toolHTTPClient.Do(metaReq)
 	if err != nil {
 		return nil, false, fmt.Errorf("request failed: %w", err)
 	}
@@ -308,7 +335,7 @@ func fetchRepoTree(owner, repo string) (entries []struct {
 		treeReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
-	treeResp, err := http.DefaultClient.Do(treeReq)
+	treeResp, err := toolHTTPClient.Do(treeReq)
 	if err != nil {
 		return nil, false, fmt.Errorf("request failed: %w", err)
 	}
@@ -326,6 +353,14 @@ func fetchRepoTree(owner, repo string) (entries []struct {
 	if err := json.Unmarshal(treeBody, &tree); err != nil {
 		return nil, false, fmt.Errorf("failed to parse repository tree: %w", err)
 	}
+
+	repoTreeCache.mu.Lock()
+	repoTreeCache.data[cacheKey] = cachedRepoTree{
+		Entries:      tree.Tree,
+		GitTruncated: tree.Truncated,
+		ExpiresAt:    now.Add(repoTreeCacheTTL),
+	}
+	repoTreeCache.mu.Unlock()
 
 	return tree.Tree, tree.Truncated, nil
 }

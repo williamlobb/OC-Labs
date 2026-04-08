@@ -15,6 +15,7 @@ import (
 )
 
 const agentTimeoutHint = "The assistant took too long while processing that request. Try narrowing scope (for example: one repository, folder, or file)."
+const agentRunTimeout = 52 * time.Second
 
 type ChatRequest struct {
 	ProjectID   string           `json:"project_id"`
@@ -82,7 +83,14 @@ For repository work:
 - Use read_repo_file after you have a path (or when the user gives a direct path).
 - Keep repo inspection lightweight by default: list files with a focused directory/pattern and read no more than 3 files before responding.
 - Prefer key files first (README, package manifests, route handlers, config) and ask before doing a deep scan.
-- If the user asks you to remember/add/remove linked repositories for future chats, use update_project with github_repos.` + repoSection + ownerSection
+- If the user asks you to remember/add/remove linked repositories for future chats, use update_project with github_repos.
+
+When the user confirms a previously proposed plan (for example: "yes", "go ahead", "sounds good", "create the tasks"):
+- Do not restart discovery.
+- Do not call list_repo_files or read_repo_file unless the user explicitly asks for fresh repo analysis in this turn.
+- Reuse the already-agreed scope and execute create_tasks immediately.
+
+When the user answers open questions for a plan, treat those answers as locked assumptions for this execution and do not ask the same questions again.` + repoSection + ownerSection
 }
 
 func main() {
@@ -167,7 +175,7 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 	flusher, ok := w.(http.Flusher)
 
 	log.Printf("running agent for project=%s is_owner=%v linked_repos=%d", req.ProjectID, req.IsOwner, len(req.GitHubRepos))
-	runCtx, cancel := context.WithTimeout(ctx, 50*time.Second)
+	runCtx, cancel := context.WithTimeout(ctx, agentRunTimeout)
 	defer cancel()
 
 	_, err := agent.Run(

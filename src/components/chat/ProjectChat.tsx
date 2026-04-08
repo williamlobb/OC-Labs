@@ -3,7 +3,21 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils/cn'
+import { useSpinnerVerb } from '@/lib/chat/use-spinner-verb'
 import type { ChatMessage } from '@/types'
+
+function WaitingIndicator({ active }: { active: boolean }) {
+  const verb = useSpinnerVerb(active)
+  return (
+    <span
+      aria-live="polite"
+      className="inline-flex items-center gap-1.5 leading-5 min-h-[1.25rem]"
+    >
+      <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-400" />
+      <span className="text-zinc-400">{verb}\u2026</span>
+    </span>
+  )
+}
 
 const FRIENDLY_TIMEOUT_MESSAGE =
   'The project assistant timed out while processing that request. Try narrowing scope (for example: one repository, folder, or file).'
@@ -18,6 +32,10 @@ interface ProjectChatProps {
 
 export function ProjectChat({ projectId, initialMessages, onMessagesChange }: ProjectChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+
+  useEffect(() => {
+    setMessages(initialMessages)
+  }, [initialMessages])
 
   function updateMessages(updater: (prev: ChatMessage[]) => ChatMessage[]) {
     setMessages((prev) => {
@@ -162,9 +180,7 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
-                msg.content || (
-                  <span className="inline-block h-4 w-4 animate-pulse rounded-full bg-zinc-400" />
-                )
+                msg.content || <WaitingIndicator active={streaming} />
               )}
             </div>
           </div>

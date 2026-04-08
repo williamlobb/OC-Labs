@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/invopop/jsonschema"
@@ -22,6 +24,12 @@ type ToolContext struct {
 	AuthToken   string   // user's session cookie or bearer token
 	GitHubRepos []string // repo URLs from the project
 	IsOwner     bool     // whether the current user is the project owner
+}
+
+const toolRequestTimeout = 12 * time.Second
+
+var toolHTTPClient = &http.Client{
+	Timeout: toolRequestTimeout,
 }
 
 func GenerateSchema[T any]() anthropic.ToolInputSchemaParam {

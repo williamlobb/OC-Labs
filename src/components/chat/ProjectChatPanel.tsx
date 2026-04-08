@@ -11,11 +11,28 @@ interface ProjectChatPanelProps {
   projectId: string
 }
 
+const CHAT_STORAGE_PREFIX = 'oclabs:project-chat:'
+const MAX_PERSISTED_MESSAGES = 80
+
 export function ProjectChatPanel({ projectId }: ProjectChatPanelProps) {
   const [collapsed, setCollapsed] = useState(true)
   const [isExpanded, setIsExpanded] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>(() => readPersistedMessages(projectId))
   const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const storageKey = `${CHAT_STORAGE_PREFIX}${projectId}`
+    try {
+      if (messages.length === 0) {
+        window.localStorage.removeItem(storageKey)
+        return
+      }
+      const recentMessages = messages.slice(-MAX_PERSISTED_MESSAGES)
+      window.localStorage.setItem(storageKey, JSON.stringify(recentMessages))
+    } catch {
+      // Ignore storage failures (private mode / quota).
+    }
+  }, [messages, projectId])
 
   useEffect(() => {
     if (collapsed) return
@@ -79,4 +96,31 @@ export function ProjectChatPanel({ projectId }: ProjectChatPanelProps) {
       </div>
     </div>
   )
+}
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<ChatMessage>
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.project_id === 'string' &&
+    (candidate.role === 'user' || candidate.role === 'assistant') &&
+    typeof candidate.content === 'string' &&
+    typeof candidate.created_at === 'string'
+  )
+}
+
+function readPersistedMessages(projectId: string): ChatMessage[] {
+  if (typeof window === 'undefined') return []
+
+  const storageKey = `${CHAT_STORAGE_PREFIX}${projectId}`
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(isChatMessage).slice(-MAX_PERSISTED_MESSAGES)
+  } catch {
+    return []
+  }
 }

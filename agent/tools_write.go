@@ -58,7 +58,7 @@ func doRequest(ctx ToolContext, method, url string, payload any) (string, error)
 	}
 	req.Header.Set("Cookie", fmt.Sprintf("sb-lmhntrqbxrzltppafjnu-auth-token=%s", ctx.AuthToken))
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := toolHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("execute request: %w", err)
 	}
@@ -168,13 +168,13 @@ var CreateTasksDef = ToolDefinition{
 // UpdateTaskInput is the input schema for the update_task tool.
 // All fields except task_id are optional; only supplied fields are updated.
 type UpdateTaskInput struct {
-	TaskID           string   `json:"task_id" jsonschema_description:"ID of the task to update"`
-	Title            string   `json:"title,omitempty" jsonschema_description:"New title (non-empty string)"`
-	Body             string   `json:"body,omitempty" jsonschema_description:"New description body (empty string clears it)"`
-	Status           string   `json:"status,omitempty" jsonschema_description:"New status: todo | in_progress | done | blocked"`
-	AssigneeID       string   `json:"assignee_id,omitempty" jsonschema_description:"User ID to assign, or empty string to unassign"`
-	AssignedToAgent  *bool    `json:"assigned_to_agent,omitempty" jsonschema_description:"Whether the task is assigned to the agent"`
-	DependsOn        []string `json:"depends_on,omitempty" jsonschema_description:"Ordered list of task IDs this task depends on (replaces existing list)"`
+	TaskID          string   `json:"task_id" jsonschema_description:"ID of the task to update"`
+	Title           string   `json:"title,omitempty" jsonschema_description:"New title (non-empty string)"`
+	Body            string   `json:"body,omitempty" jsonschema_description:"New description body (empty string clears it)"`
+	Status          string   `json:"status,omitempty" jsonschema_description:"New status: todo | in_progress | done | blocked"`
+	AssigneeID      string   `json:"assignee_id,omitempty" jsonschema_description:"User ID to assign, or empty string to unassign"`
+	AssignedToAgent *bool    `json:"assigned_to_agent,omitempty" jsonschema_description:"Whether the task is assigned to the agent"`
+	DependsOn       []string `json:"depends_on,omitempty" jsonschema_description:"Ordered list of task IDs this task depends on (replaces existing list)"`
 }
 
 // UpdateTaskDef updates a single task via PATCH.
