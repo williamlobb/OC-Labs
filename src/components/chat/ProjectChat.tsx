@@ -68,9 +68,10 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
       })
 
       if (!res.ok || !res.body) {
+        const errorText = await extractErrorMessage(res)
         updateMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, content: 'Something went wrong.' } : m
+            m.id === assistantId ? { ...m, content: errorText } : m
           )
         )
         return
@@ -89,10 +90,14 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
           prev.map((m) => (m.id === assistantId ? { ...m, content: snap } : m))
         )
       }
-    } catch {
+    } catch (err) {
+      const fallback =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Something went wrong while reaching the project agent.'
       updateMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantId ? { ...m, content: 'Something went wrong.' } : m
+          m.id === assistantId ? { ...m, content: fallback } : m
         )
       )
     } finally {
@@ -194,4 +199,21 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
       </div>
     </div>
   )
+}
+
+async function extractErrorMessage(res: Response): Promise<string> {
+  try {
+    const contentType = res.headers.get('content-type') ?? ''
+    if (contentType.includes('application/json')) {
+      const data = (await res.json()) as { error?: string }
+      if (data?.error?.trim()) return data.error.trim()
+    }
+
+    const text = (await res.text()).replace(/\s+/g, ' ').trim()
+    if (text) return text.length > 240 ? `${text.slice(0, 240)}...` : text
+  } catch {
+    // Fall through to status fallback.
+  }
+
+  return `Request failed (${res.status}).`
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 )
 
-const maxToolIterations = 10
+const maxToolIterations = 6
 
 type Agent struct {
 	client *anthropic.Client
@@ -43,7 +43,7 @@ func (a *Agent) Run(ctx context.Context, toolCtx ToolContext, system string, mes
 	for range maxToolIterations {
 		message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
 			Model:     a.model,
-			MaxTokens: 2048,
+			MaxTokens: 1536,
 			System:    []anthropic.TextBlockParam{{Text: system}},
 			Messages:  messages,
 			Tools:     anthropicTools,

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/joho/godotenv"
@@ -76,6 +78,8 @@ Only fetch project data when the user's request requires it. Before creating new
 For repository work:
 - Use list_repo_files to discover paths when the user asks to inspect a repo or you do not know exact filenames yet.
 - Use read_repo_file after you have a path (or when the user gives a direct path).
+- Keep repo inspection lightweight by default: list files with a focused directory/pattern and read no more than 3 files before responding.
+- Prefer key files first (README, package manifests, route handlers, config) and ask before doing a deep scan.
 - If the user asks you to remember/add/remove linked repositories for future chats, use update_project with github_repos.` + repoSection + ownerSection
 }
 
@@ -161,8 +165,11 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 	flusher, ok := w.(http.Flusher)
 
 	log.Printf("running agent for project=%s is_owner=%v linked_repos=%d", req.ProjectID, req.IsOwner, len(req.GitHubRepos))
+	runCtx, cancel := context.WithTimeout(ctx, 50*time.Second)
+	defer cancel()
+
 	_, err := agent.Run(
-		ctx,
+		runCtx,
 		toolCtx,
 		buildSystemPrompt(req.IsOwner, req.GitHubRepos),
 		messages,
@@ -171,6 +178,10 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 	if err != nil {
 		log.Printf("agent error project=%s: %v", req.ProjectID, err)
 		// If headers already sent, we can't change status code
+		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+			fmt.Fprint(w, "\n\n[agent timeout: request took too long; try narrowing to specific files or folders.]")
+			return
+		}
 		fmt.Fprintf(w, "\n\n[agent error: %s]", err.Error())
 	}
 }

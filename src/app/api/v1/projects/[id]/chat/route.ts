@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { canEditProjectContent } from '@/lib/auth/permissions'
+import { trimHistoryToBudget } from '@/lib/chat/trim-history'
 
 export const runtime = 'edge'
 export const maxDuration = 60
+const AGENT_FETCH_TIMEOUT_MS = 45_000
+const CHAT_HISTORY_CHAR_BUDGET = 8_000
 
 // Normalise URL — strip trailing slash and ensure https. Both issues cause Go's mux
 // to issue a 301 redirect which downgrades POST→GET, producing 405 Method Not Allowed.
-const AGENT_URL = (process.env.AGENT_URL ?? '')
-  .replace(/^http:\/\//, 'https://')
-  .replace(/\/$/, '')
+const AGENT_URL = normalizeAgentURL(process.env.AGENT_URL ?? '')
 
 export async function POST(
   req: NextRequest,
@@ -57,27 +58,47 @@ export async function POST(
   const baseURL = `${proto}://${host}`
 
   let agentRes: Response
+  const abortController = new AbortController()
+  const timeout = setTimeout(() => abortController.abort(), AGENT_FETCH_TIMEOUT_MS)
   try {
+    const history = normalizeAndTrimHistory(clientHistory)
+
     agentRes = await fetch(`${AGENT_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: abortController.signal,
       body: JSON.stringify({
         project_id: id,
         message: trimmedMessage,
-        history: clientHistory ?? [],
+        history,
         auth_token: authToken,
         base_url: baseURL,
         github_repos: project?.github_repos ?? [],
         is_owner: membership?.role === 'owner',
       }),
     })
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return NextResponse.json(
+        {
+          error:
+            'Agent timed out while reviewing this request. Try narrowing scope (for example, specific files or folders).',
+        },
+        { status: 504 }
+      )
+    }
     return NextResponse.json({ error: 'Agent unavailable' }, { status: 502 })
+  } finally {
+    clearTimeout(timeout)
   }
 
   if (!agentRes.ok || !agentRes.body) {
-    const errText = await agentRes.text().catch(() => 'Agent unavailable')
-    return NextResponse.json({ error: errText }, { status: 502 })
+    const errText = await agentRes.text().catch(() => '')
+    const cleaned = sanitizeUpstreamError(errText)
+    return NextResponse.json(
+      { error: cleaned || `Agent request failed (${agentRes.status})` },
+      { status: 502 }
+    )
   }
 
   const encoder = new TextEncoder()
@@ -129,10 +150,134 @@ function extractAuthToken(cookieHeader: string): string {
       return numA - numB
     })
   if (chunked.length > 0) {
-    return chunked.map((c) => c.split('=').slice(1).join('=')).join('')
+    const raw = chunked.map((c) => c.split('=').slice(1).join('=')).join('')
+    return extractSupabaseAccessToken(raw)
   }
 
   // Single cookie: sb-xxx-auth-token=...
   const single = cookies.find((c) => c.includes('-auth-token='))
-  return single ? single.split('=').slice(1).join('=') : ''
+  return single ? extractSupabaseAccessToken(single.split('=').slice(1).join('=')) : ''
+}
+
+function normalizeAndTrimHistory(input: unknown): Array<{ role: 'user' | 'assistant'; content: string }> {
+  const raw = Array.isArray(input) ? input : []
+  const valid = raw
+    .filter((item): item is { role: unknown; content: unknown } => typeof item === 'object' && item !== null)
+    .map((item) => ({
+      role: item.role === 'assistant' ? 'assistant' : item.role === 'user' ? 'user' : null,
+      content: typeof item.content === 'string' ? item.content.trim() : '',
+    }))
+    .filter(
+      (item): item is { role: 'user' | 'assistant'; content: string } =>
+        item.role !== null && item.content.length > 0
+    )
+
+  const normalized = valid.reduce<Array<{ role: 'user' | 'assistant'; content: string }>>((acc, msg) => {
+    if (acc.length > 0 && acc[acc.length - 1].role === msg.role) {
+      acc[acc.length - 1] = msg
+      return acc
+    }
+    acc.push(msg)
+    return acc
+  }, [])
+
+  const withoutTrailingUser =
+    normalized.length > 0 && normalized[normalized.length - 1].role === 'user'
+      ? normalized.slice(0, -1)
+      : normalized
+
+  return trimHistoryToBudget(withoutTrailingUser, CHAT_HISTORY_CHAR_BUDGET) as Array<{
+    role: 'user' | 'assistant'
+    content: string
+  }>
+}
+
+function sanitizeUpstreamError(input: string): string {
+  const text = input
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!text) return ''
+  return text.length > 300 ? `${text.slice(0, 300)}...` : text
+}
+
+function normalizeAgentURL(raw: string): string {
+  let value = raw.trim()
+  if (!value) return ''
+
+  if (!value.startsWith('http://') && !value.startsWith('https://')) {
+    value = `https://${value}`
+  }
+
+  value = value.replace(/^http:\/\//, 'https://')
+  value = value.replace(/\/$/, '')
+  value = value.replace(/\/chat$/, '')
+  return value
+}
+
+function extractSupabaseAccessToken(rawValue: string): string {
+  const direct = rawValue.trim().replace(/^"|"$/g, '')
+  if (looksLikeJwt(direct)) return direct
+
+  const decoded = safelyDecodeURIComponent(direct)
+  if (looksLikeJwt(decoded)) return decoded
+
+  for (const candidate of [direct, decoded]) {
+    const fromJson = parseSessionCandidate(candidate)
+    if (fromJson) return fromJson
+  }
+
+  return decoded || direct
+}
+
+function parseSessionCandidate(value: string): string {
+  const normalized = value.trim().replace(/^"|"$/g, '')
+  const maybeBase64 = normalized.startsWith('base64-')
+    ? decodeBase64Url(normalized.slice('base64-'.length))
+    : normalized
+
+  try {
+    const parsed = JSON.parse(maybeBase64) as unknown
+
+    if (Array.isArray(parsed) && typeof parsed[0] === 'string' && looksLikeJwt(parsed[0])) {
+      return parsed[0]
+    }
+
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'access_token' in parsed &&
+      typeof (parsed as { access_token?: unknown }).access_token === 'string'
+    ) {
+      const token = (parsed as { access_token: string }).access_token
+      if (looksLikeJwt(token)) return token
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
+}
+
+function looksLikeJwt(value: string): boolean {
+  return /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)
+}
+
+function safelyDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+function decodeBase64Url(value: string): string {
+  try {
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+    return atob(padded)
+  } catch {
+    return value
+  }
 }

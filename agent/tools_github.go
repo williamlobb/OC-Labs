@@ -12,6 +12,12 @@ import (
 	"strings"
 )
 
+const (
+	defaultRepoFileListLimit = 80
+	maxRepoFileListLimit     = 200
+	maxRepoFileContentChars  = 3500
+)
+
 // ReadRepoFileDef fetches any file from a linked GitHub repository by path.
 // To read the README, pass path "README.md".
 var ReadRepoFileDef = ToolDefinition{
@@ -38,7 +44,7 @@ type listRepoFilesInput struct {
 	RepoURL   string `json:"repo_url" jsonschema:"description=GitHub repository URL. Omit to use the first linked repo."`
 	Directory string `json:"directory" jsonschema:"description=Optional directory prefix to limit results (e.g. src/app or docs)."`
 	Pattern   string `json:"pattern" jsonschema:"description=Optional case-insensitive substring filter on file paths (e.g. route.ts or readme)."`
-	Limit     int    `json:"limit" jsonschema:"description=Maximum number of file paths to return. Default 200, maximum 500."`
+	Limit     int    `json:"limit" jsonschema:"description=Maximum number of file paths to return. Default 80, maximum 200."`
 }
 
 type githubRepoRef struct {
@@ -112,8 +118,8 @@ func readRepoFile(ctx ToolContext, input json.RawMessage) (string, error) {
 	}
 
 	content := string(body)
-	if len(content) > 8000 {
-		content = content[:8000] + "\n... [truncated]"
+	if len(content) > maxRepoFileContentChars {
+		content = content[:maxRepoFileContentChars] + "\n... [truncated]"
 	}
 
 	return content, nil
@@ -132,10 +138,10 @@ func listRepoFiles(ctx ToolContext, input json.RawMessage) (string, error) {
 
 	limit := params.Limit
 	if limit <= 0 {
-		limit = 200
+		limit = defaultRepoFileListLimit
 	}
-	if limit > 500 {
-		limit = 500
+	if limit > maxRepoFileListLimit {
+		limit = maxRepoFileListLimit
 	}
 
 	entries, githubTruncated, err := fetchRepoTree(repoRef.Owner, repoRef.Repo)
