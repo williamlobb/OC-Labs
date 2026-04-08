@@ -12,7 +12,7 @@ interface Message {
   content: string
 }
 
-export function DiscoverChatPanel() {
+export function DiscoverChatPanel({ isPower }: { isPower: boolean }) {
   const [collapsed, setCollapsed] = useState(true)
   const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -71,7 +71,7 @@ export function DiscoverChatPanel() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden rounded-2xl pb-1 pt-2">
-          <DiscoverChat initialMessages={messages} onMessagesChange={setMessages} />
+          <DiscoverChat initialMessages={messages} onMessagesChange={setMessages} isPower={isPower} />
         </div>
       </div>
     </div>

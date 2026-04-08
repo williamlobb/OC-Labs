@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { notifyNewProject } from '@/lib/notifications/slack-events'
 import { createEpic } from '@/lib/jira/client'
-import { canCreateProject } from '@/lib/auth/permissions'
+import { canCreateProject, getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 import type { ProjectStatus } from '@/types'
 
 export const runtime = 'nodejs'
@@ -12,7 +12,7 @@ export const maxDuration = 60
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const SYSTEM_PROMPT = `You are the OC Labs new-project assistant. Your sole purpose is helping the user create a new project on the OC Labs discovery board through a friendly, focused conversation.
+const POWER_USER_SYSTEM_PROMPT = `You are the OC Labs new-project assistant. Your sole purpose is helping the user create a new project on the OC Labs discovery board through a friendly, focused conversation.
 
 Collect these details through natural conversation:
 - **Title** (required): The project name
@@ -32,6 +32,26 @@ GUARDRAILS — when these topics come up, respond with the exact guidance below 
 - Anything else off-topic → "I'm focused on helping you create a new project. Is there a project idea you'd like to add to OC Labs?"
 
 Keep responses concise and conversational. Ask one or two questions at a time.`
+
+const BASIC_USER_SYSTEM_PROMPT = `You are the OC Labs idea assistant. Your purpose is helping Omnia Collective members shape and submit project ideas for review by the OC Labs team.
+
+Before submitting, guide the user through a short vetting conversation. Ask one or two questions at a time — never all at once. Cover these areas:
+1. **What's the idea?** Title and a brief description of what it is.
+2. **What problem does it solve?** What pain point or opportunity does this address?
+3. **Who benefits?** Which teams, roles, or people across the Collective would use or gain from this?
+4. **Why now?** Is there something making this timely or urgent?
+5. **Skills likely needed**: Tags such as frontend, backend/integrations, AI/LLM, data/analytics, product/design, governance/workflow (optional but helpful).
+6. **Any supporting links**: GitHub repos, Notion docs, or other context (all optional).
+
+Once you have a title, summary, problem statement, and the user is satisfied, call the create_project tool to submit. The status should always be 'Idea' for submitted ideas. After submission, tell the user: "Your idea has been submitted for review! The OC Labs team will take a look and reach out. You can [view your submission](/projects/{id}) on the board in the meantime."
+
+GUARDRAILS — when these topics come up, respond with the exact guidance below and return to idea submission:
+- Questions about an existing project → "To work with that project, head to its project page. I'm here to help you submit a new idea."
+- Profile or settings questions → "That's handled on the Profile or Settings page — you can get there from the top menu."
+- Voting, joining, or browsing questions → "You can vote and join projects directly from the board above. I'm here to help you submit an idea."
+- Anything else off-topic → "I'm focused on helping you put forward a project idea. Do you have something you'd like to submit?"
+
+Keep responses warm and concise. This is the user's first step — make it easy.`
 
 const VALID_STATUSES: ProjectStatus[] = ['Idea', 'In progress', 'Needs help', 'Paused', 'Shipped']
 
@@ -133,6 +153,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (!user) return new Response('Unauthorized', { status: 401 })
   const authedUser = user
 
+  const platformRole = await getPlatformRole(supabase, authedUser.id)
+  const systemPrompt = isPowerUser(platformRole) ? POWER_USER_SYSTEM_PROMPT : BASIC_USER_SYSTEM_PROMPT
+
   let body: { message?: unknown; history?: unknown }
   try {
     body = await req.json()
@@ -164,7 +187,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       const stream = client.messages.stream({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         tools: [CREATE_PROJECT_TOOL],
         messages,
       })
@@ -229,7 +252,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         const followUp = client.messages.stream({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 512,
-          system: SYSTEM_PROMPT,
+          system: systemPrompt,
           tools: [CREATE_PROJECT_TOOL],
           messages: followUpMessages,
         })

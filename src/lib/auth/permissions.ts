@@ -97,14 +97,13 @@ export async function canManageMembers(
 
 /**
  * Can user create a project?
- * True if: power_user
+ * True if: any authenticated user (all roles can submit ideas for review)
  */
 export async function canCreateProject(
   supabase: SupabaseClient,
   userId: string
 ): Promise<boolean> {
-  const role = await getPlatformRole(supabase, userId)
-  return isPowerUser(role)
+  return !!userId
 }
 
 /**

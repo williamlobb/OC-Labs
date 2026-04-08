@@ -9,8 +9,9 @@ export default async function DiscoverPage() {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  const canCreate = !!user
   const platformRole = user ? await getPlatformRole(supabase, user.id) : 'user'
-  const canCreate = isPowerUser(platformRole)
+  const isPower = isPowerUser(platformRole)
 
   // Fetch all projects ordered by vote_count desc
   const { data: projects } = await supabase
@@ -91,7 +92,7 @@ export default async function DiscoverPage() {
             href="/projects/new"
             className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
-            New project
+            {isPower ? 'New project' : 'Have an idea?'}
           </Link>
         )}
       </div>
@@ -102,11 +103,10 @@ export default async function DiscoverPage() {
         joinedProjectIds={joinedProjectIds}
       />
 
-      {/* Persistent project-creation assistant — power_user only */}
       {canCreate && (
         <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
           <div className="mx-auto max-w-7xl pointer-events-auto">
-            <DiscoverChatPanel />
+            <DiscoverChatPanel isPower={isPower} />
           </div>
         </div>
       )}

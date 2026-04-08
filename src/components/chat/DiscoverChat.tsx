@@ -27,9 +27,10 @@ interface Message {
 interface DiscoverChatProps {
   initialMessages: Message[]
   onMessagesChange?: (messages: Message[]) => void
+  isPower?: boolean
 }
 
-export function DiscoverChat({ initialMessages, onMessagesChange }: DiscoverChatProps) {
+export function DiscoverChat({ initialMessages, onMessagesChange, isPower = false }: DiscoverChatProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -129,8 +130,17 @@ export function DiscoverChat({ initialMessages, onMessagesChange }: DiscoverChat
       <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-4">
         {messages.length === 0 && (
           <div className="py-12 text-center text-sm text-zinc-400">
-            <p className="font-medium text-zinc-500">Start a new project</p>
-            <p className="mt-1">Tell me what you&apos;re building and I&apos;ll help you set it up.</p>
+            {isPower ? (
+              <>
+                <p className="font-medium text-zinc-500">Start a new project</p>
+                <p className="mt-1">Tell me what you&apos;re building and I&apos;ll help you set it up.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-zinc-500">Got an idea?</p>
+                <p className="mt-1">Share it and I&apos;ll help you put it forward for review.</p>
+              </>
+            )}
           </div>
         )}
         {messages.map((msg) => (
@@ -199,7 +209,7 @@ export function DiscoverChat({ initialMessages, onMessagesChange }: DiscoverChat
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Tell me about your new project…"
+            placeholder={isPower ? 'Tell me about your new project…' : 'Describe your idea…'}
             rows={3}
             disabled={streaming}
             className="flex-1 resize-none bg-transparent px-3 py-2.5 pr-12 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
