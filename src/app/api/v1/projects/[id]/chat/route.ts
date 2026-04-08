@@ -108,20 +108,41 @@ export async function POST(
   const host = req.headers.get('host') ?? 'localhost:3000'
   const baseURL = `${proto}://${host}`
 
-  const agentRes = await fetch(`${AGENT_URL}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      project_id: id,
-      message: trimmedMessage,
-      history: (historyRows ?? []).map((m) => ({ role: m.role, content: m.content })),
-      auth_token: authToken,
-      base_url: baseURL,
-      github_repos: project?.github_repos ?? [],
-      github_tools: buildGithubToolsHint(id, project?.github_repos ?? [], baseURL),
-      task_tools: buildTaskToolsHint(id, baseURL),
-    }),
-  })
+  // Normalize history: Anthropic API requires alternating user/assistant turns.
+  // When a previous agent response failed to stream (so nothing was saved to DB),
+  // consecutive user messages accumulate and the API rejects the request silently.
+  // De-duplicate by keeping the LAST message in any run of the same role.
+  const rawHistory = (historyRows ?? []).map((m) => ({ role: m.role, content: m.content }))
+  const normalizedHistory = rawHistory.reduce<{ role: string; content: string }[]>((acc, m) => {
+    if (acc.length > 0 && acc[acc.length - 1].role === m.role) {
+      return [...acc.slice(0, -1), m]
+    }
+    return [...acc, m]
+  }, [])
+  // Drop last entry if it's a user message — the current message replaces it.
+  const history = normalizedHistory.length > 0 && normalizedHistory[normalizedHistory.length - 1].role === 'user'
+    ? normalizedHistory.slice(0, -1)
+    : normalizedHistory
+
+  let agentRes: Response
+  try {
+    agentRes = await fetch(`${AGENT_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_id: id,
+        message: trimmedMessage,
+        history,
+        auth_token: authToken,
+        base_url: baseURL,
+        github_repos: project?.github_repos ?? [],
+        github_tools: buildGithubToolsHint(id, project?.github_repos ?? [], baseURL),
+        task_tools: buildTaskToolsHint(id, baseURL),
+      }),
+    })
+  } catch {
+    return NextResponse.json({ error: 'Agent unavailable' }, { status: 502 })
+  }
 
   if (!agentRes.ok || !agentRes.body) {
     const errText = await agentRes.text().catch(() => 'Agent unavailable')
