@@ -62,9 +62,34 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // After successful auth, apply any pending invitations for this user's email
+  // After successful auth, gate access to invited users only
   const { data: { user: authedUser } } = await supabase.auth.getUser()
   if (authedUser?.email) {
+    // Check if this email has ever been invited (pending or accepted)
+    const { count: inviteCount } = await supabaseAdmin
+      .from('role_invitations')
+      .select('id', { count: 'exact', head: true })
+      .eq('email', authedUser.email)
+
+    if ((inviteCount ?? 0) === 0) {
+      // Not invited — revoke the session we just created and redirect to error
+      const errorResponse = NextResponse.redirect(new URL('/login?error=not_invited', request.url))
+      // Clear any auth cookies set by exchangeCodeForSession
+      response.cookies.getAll()
+        .filter(c => c.name.startsWith('sb-'))
+        .forEach(c => {
+          errorResponse.cookies.set({ name: c.name, value: '', maxAge: 0, path: '/' })
+        })
+      // Also clear any pre-existing auth cookies from the request
+      request.cookies.getAll()
+        .filter(c => c.name.startsWith('sb-'))
+        .forEach(c => {
+          errorResponse.cookies.set({ name: c.name, value: '', maxAge: 0, path: '/' })
+        })
+      return errorResponse
+    }
+
+    // Apply any pending invitations for this user's email
     const { data: pendingInvites } = await supabaseAdmin
       .from('role_invitations')
       .select('*')

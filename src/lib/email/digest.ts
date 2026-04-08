@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = process.env.RESEND_FROM ?? 'OC Labs <noreply@labs.theoc.ai>'
+const FROM = process.env.RESEND_FROM ?? 'OC Labs <noreply@oclabs.space>'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://oclabs.space'
 
 interface DigestProject {

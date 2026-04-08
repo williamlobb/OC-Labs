@@ -101,9 +101,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     await sendRoleInviteEmail(email, roleForEmail, inviterName, acceptUrl)
   } catch (err) {
-    console.error('Failed to send invite email:', err)
+    const detail = err instanceof Error ? err.message : String(err)
+    console.error('Failed to send invite email:', detail)
     return NextResponse.json(
-      { error: 'Invitation created but email delivery failed' },
+      { error: `Invitation created but email delivery failed: ${detail}` },
       { status: 500 }
     )
   }

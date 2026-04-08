@@ -2,7 +2,7 @@ import { Resend } from 'resend'
 import type { PlatformRole, MemberRole } from '@/types'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM = process.env.RESEND_FROM ?? 'OC Labs <noreply@labs.theoc.ai>'
+const FROM = process.env.RESEND_FROM ?? 'OC Labs <noreply@oclabs.space>'
 function formatRoleName(role: PlatformRole | MemberRole): string {
   return role
     .split('_')
