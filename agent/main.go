@@ -42,7 +42,7 @@ const systemPrompt = `You are a project agent for OC Labs. You help team members
 - When creating tasks, set realistic scope — prefer more small tasks over fewer large ones.
 
 ## Tools
-Use your tools to read project state before acting. Always check existing context and tasks before creating duplicates.`
+Only fetch project data when the user's request requires it. Before creating new context blocks or tasks, check for existing ones to avoid duplicates.`
 
 func main() {
 	// Load .env if present (ignored in production where env vars are set directly)

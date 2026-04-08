@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils/cn'
+import { ContributorChip } from '@/components/ui/ContributorChip'
 import type { Task, TaskStatus } from '@/types'
 
 const STATUS_CYCLE: Record<TaskStatus, TaskStatus> = {
@@ -161,6 +162,19 @@ export function TaskCard({
 
       {/* Spacer pushes footer to bottom */}
       <div className="flex-1" />
+
+      {/* Contributor chip */}
+      {(() => {
+        const creatorMember = teamMembers.find((m) => m.user_id === task.created_by)
+        const isAgentTask = task.assigned_to_agent && !creatorMember
+        return (
+          <ContributorChip
+            authorId={task.created_by}
+            authorName={creatorMember?.name ?? (isAgentTask ? 'Omnia Agent' : undefined)}
+            isAgent={isAgentTask}
+          />
+        )
+      })()}
 
       {/* Footer: status + assignee */}
       <div className="mt-2 flex items-center justify-between gap-2">

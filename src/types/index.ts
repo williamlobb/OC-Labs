@@ -63,6 +63,7 @@ export interface ProjectUpdate {
   id: string
   project_id: string
   author_id?: string
+  author_name?: string
   body: string
   milestone: boolean
   posted_at: string

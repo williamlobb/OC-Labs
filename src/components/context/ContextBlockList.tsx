@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
+import { ContributorChip } from '@/components/ui/ContributorChip'
 import type { ContextBlock, BlockType } from '@/types'
 
 const BLOCK_TYPE_VARIANTS: Record<BlockType, 'blue' | 'purple' | 'amber' | 'red' | 'default'> = {
@@ -132,10 +133,10 @@ export function ContextBlockList({ blocks, canEdit, onEdit, onDelete }: ContextB
             </div>
           )}
 
-          <p className="mt-3 text-xs text-zinc-400">
-            Added by {block.author_name || 'Unknown'} on{' '}
-            {new Date(block.created_at).toLocaleString()}
-          </p>
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-zinc-400">
+            <ContributorChip authorId={block.author_id} authorName={block.author_name} />
+            <span>· {new Date(block.created_at).toLocaleString()}</span>
+          </div>
         </div>
       ))}
     </div>

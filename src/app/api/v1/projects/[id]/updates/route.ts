@@ -52,11 +52,23 @@ export async function POST(
 
   const milestone = body.milestone === true
 
+  const { data: profile } = await supabaseAdmin
+    .from('users')
+    .select('name')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const authorName =
+    typeof body.author_name === 'string'
+      ? body.author_name
+      : (profile?.name?.trim() || 'Unknown')
+
   const { data: update, error } = await supabaseAdmin
     .from('updates')
     .insert({
       project_id: id,
       author_id: userId,
+      author_name: authorName,
       body: updateBody,
       milestone,
     })

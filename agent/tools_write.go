@@ -11,8 +11,9 @@ import (
 
 // PostUpdateInput is the input schema for the post_update tool.
 type PostUpdateInput struct {
-	Body      string `json:"body" jsonschema_description:"The update text to post"`
-	Milestone bool   `json:"milestone" jsonschema_description:"Whether this is a milestone update"`
+	Body       string `json:"body" jsonschema_description:"The update text to post"`
+	Milestone  bool   `json:"milestone" jsonschema_description:"Whether this is a milestone update"`
+	AuthorName string `json:"author_name" jsonschema_description:"Display name of the author"`
 }
 
 // CreateContextBlockInput is the input schema for the create_context_block tool.
@@ -91,6 +92,7 @@ var PostUpdateDef = ToolDefinition{
 			return "", fmt.Errorf("parse input: %w", err)
 		}
 
+		params.AuthorName = "Omnia Agent"
 		url := fmt.Sprintf("%s/api/v1/projects/%s/updates", ctx.BaseURL, ctx.ProjectID)
 		_, err := doPost(ctx, url, params)
 		if err != nil {

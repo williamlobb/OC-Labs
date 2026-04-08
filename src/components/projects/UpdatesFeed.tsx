@@ -1,4 +1,5 @@
 import type { ProjectUpdate } from '@/types'
+import { ContributorChip } from '@/components/ui/ContributorChip'
 
 interface UpdatesFeedProps {
   updates: ProjectUpdate[]
@@ -35,7 +36,13 @@ export function UpdatesFeed({ updates }: UpdatesFeedProps) {
           </div>
           <div className="flex-1 space-y-1">
             <p className="text-sm text-zinc-700 dark:text-zinc-300">{update.body}</p>
-            <p className="text-xs text-zinc-400">{formatDate(update.posted_at)}</p>
+            <div className="flex items-center gap-2">
+              <ContributorChip
+                authorId={update.author_id}
+                authorName={update.author_name}
+              />
+              <span className="text-xs text-zinc-400">{formatDate(update.posted_at)}</span>
+            </div>
           </div>
         </li>
       ))}

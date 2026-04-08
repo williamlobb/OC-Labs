@@ -60,7 +60,10 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
       const res = await fetch(`/api/v1/projects/${projectId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          history: messages.map((m) => ({ role: m.role, content: m.content })),
+        }),
       })
 
       if (!res.ok || !res.body) {
