@@ -6,7 +6,7 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS platform_role platform_role NO
 
 -- Create role_invitations table
 CREATE TABLE IF NOT EXISTS public.role_invitations (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text NOT NULL,
   platform_role platform_role,
   project_id uuid REFERENCES public.projects(id) ON DELETE CASCADE,
@@ -117,6 +117,6 @@ WHERE email IN ('will.lobb@theoc.ai', 'will@theoc.ai');
 -- Seed role_invitations for power users (so auth callback picks up on first login)
 INSERT INTO public.role_invitations (email, platform_role, token)
 VALUES
-  ('will.lobb@theoc.ai', 'power_user', encode(gen_random_bytes(32), 'hex')),
-  ('will@theoc.ai', 'power_user', encode(gen_random_bytes(32), 'hex'))
+  ('will.lobb@theoc.ai', 'power_user', gen_random_uuid()::text),
+  ('will@theoc.ai', 'power_user', gen_random_uuid()::text)
 ON CONFLICT DO NOTHING;
