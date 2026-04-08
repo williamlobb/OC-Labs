@@ -50,11 +50,80 @@ Replace with: "Only fetch project data when the user's request requires it."
 
 ### Fix 4 (nice-to-have): Consider returning structured fields from `get_project_context` instead of raw JSON, so the model has less to interpret/summarise
 
+## Status of Agent Fixes (verified 2026-04-08)
+
+Both critical agent-side fixes are **already applied** in the codebase:
+
+- `tools_project.go:13` — description now reads: _"Call this when the user asks about the project…not on every message."_ ✓
+- `main.go:66` (system prompt) — now reads: _"Only fetch project data when the user's request requires it."_ ✓
+
+---
+
+## React Rendering Gap (new findings)
+
+### Current rendering — `src/components/chat/ProjectChat.tsx:134`
+```tsx
+{msg.content || <span className="animate-pulse …" />}
+```
+Raw string, no markdown parsing. Agent output of `**bold**`, `## heading`, `` `code` ``, and bullet lists all renders as literal characters — the wall-of-text problem in the screenshot.
+
+### No markdown library installed
+`package.json` has no `react-markdown`, `marked`, `remark`, or any equivalent. Adding one is required.
+
+### Streaming architecture
+The current Go agent (`agent.go:73-78`) uses non-streaming `client.Messages.New` and writes the full text once at the end with `io.WriteString(w, lastText)`. The React component receives this as a single chunk and displays it at once — there is no true token-level progressive reveal. The chunked transfer encoding only matters when the Go agent calls tools in multiple turns (each `io.WriteString` call would be a separate chunk, but the final text is one call).
+
+---
+
+## React Streaming Patterns (research)
+
+Modern chat UIs (Vercel AI SDK, ChatGPT, etc.) use:
+1. **SSE or chunked text streaming** — server pushes tokens one-by-one; already wired in the route handler
+2. **Markdown rendered on each update** — re-parse the accumulated string every state tick; acceptable for responses under ~10K chars
+3. **Code block syntax highlighting** — via `rehype-highlight` or `rehype-prism` plugins for `react-markdown`
+4. **Progressive reveal via cursor** — show a blinking cursor appended to the last streamed chunk
+
+For OC Labs the minimum viable improvement is step 2 (markdown rendering). Steps 1/3/4 are nice-to-have.
+
+---
+
+## Implementation Path — minimal changes for readable output
+
+### Step 1 — Install `react-markdown` (single dependency)
+```bash
+npm install react-markdown
+```
+`react-markdown` renders markdown safely by default (no `dangerouslySetInnerHTML`). It supports GFM (tables, task lists, strikethrough) via the optional `remark-gfm` plugin.
+
+### Step 2 — Render assistant messages through ReactMarkdown (`ProjectChat.tsx`)
+```tsx
+import ReactMarkdown from 'react-markdown'
+
+// In the message bubble, replace:
+{msg.content || <span className="animate-pulse …" />}
+
+// With:
+{msg.role === 'assistant' && msg.content ? (
+  <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
+    {msg.content}
+  </ReactMarkdown>
+) : (
+  msg.content || <span className="animate-pulse …" />
+)}
+```
+
+### Step 3 — Add prose Tailwind plugin (optional but clean)
+`@tailwindcss/typography` gives `prose` classes that style headings, lists, code blocks automatically. Without it, just add utility classes manually (`[&_h2]:font-bold [&_ul]:list-disc` etc.).
+
+### Step 4 (optional) — True token streaming in Go agent
+Replace `client.Messages.New` in the final response turn with `client.Messages.NewStreaming`, writing each text delta to `w` as it arrives. This would give word-by-word appearance instead of a single block render. Lower priority — readability is the blocking issue, not streaming latency.
+
+---
+
 ## Open Questions
 
-- Should `get_project_context` be called automatically on the first message of a *new* session only (not on every turn)? That might be a middle ground.
-- Is the verbose response reproducible on the deployed agent, or only locally? (Screenshot suggests production.)
-- After Fix 1+2, verify the agent still proactively fetches context when it's actually needed (e.g. "what's the status of this project?")
+- Should `get_project_context` be called automatically on the first message of a *new* session only? Middle ground if verbosity returns.
+- After adding markdown rendering, verify the streaming pulse indicator still shows before the first chunk arrives (the `animate-pulse` span guards on `msg.content` being empty — this is already correct).
 
 ## Raw Agent Outputs
 

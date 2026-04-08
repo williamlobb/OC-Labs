@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils/cn'
 import type { ChatMessage } from '@/types'
 
@@ -131,8 +132,29 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
                   : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
               )}
             >
-              {msg.content || (
-                <span className="inline-block h-4 w-4 animate-pulse rounded-full bg-zinc-400" />
+              {msg.role === 'assistant' && msg.content ? (
+                <div
+                  className={cn(
+                    '[&_h1]:mb-1 [&_h1]:text-base [&_h1]:font-semibold',
+                    '[&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold',
+                    '[&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-medium',
+                    '[&_p]:mb-2 [&_p]:last:mb-0',
+                    '[&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-4',
+                    '[&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4',
+                    '[&_li]:mb-0.5',
+                    '[&_code]:rounded [&_code]:bg-zinc-200 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs dark:[&_code]:bg-zinc-700',
+                    '[&_pre]:mb-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-zinc-200 [&_pre]:p-3 dark:[&_pre]:bg-zinc-700',
+                    '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
+                    '[&_strong]:font-semibold',
+                    '[&_blockquote]:border-l-2 [&_blockquote]:border-zinc-300 [&_blockquote]:pl-3 [&_blockquote]:text-zinc-500 dark:[&_blockquote]:border-zinc-600',
+                  )}
+                >
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              ) : (
+                msg.content || (
+                  <span className="inline-block h-4 w-4 animate-pulse rounded-full bg-zinc-400" />
+                )
               )}
             </div>
           </div>
