@@ -119,6 +119,7 @@ export async function POST(
       base_url: baseURL,
       github_repos: project?.github_repos ?? [],
       github_tools: buildGithubToolsHint(id, project?.github_repos ?? [], baseURL),
+      task_tools: buildTaskToolsHint(id, baseURL),
     }),
   })
 
@@ -200,6 +201,34 @@ function extractAuthToken(cookieHeader: string): string {
   // Single cookie: sb-xxx-auth-token=...
   const single = cookies.find((c) => c.includes('-auth-token='))
   return single ? single.split('=').slice(1).join('=') : ''
+}
+
+/**
+ * Describes the task management tools available to the agent for this project.
+ *
+ * Tools:
+ *   GET {base_url}/api/v1/projects/{id}/tasks
+ *     → list all tasks (id, title, body, status, assignee_id, assigned_to_agent, depends_on)
+ *     Use when: user asks about tasks, wants to know what's on the board, asks for task details.
+ *
+ *   PATCH {base_url}/api/v1/projects/{id}/tasks/{taskId}
+ *     → update a task. Body (all optional): title, body, status, assignee_id, assigned_to_agent, depends_on
+ *     status values: todo | in_progress | done | blocked
+ *     Use when: user asks to rename, reassign, change status, or edit a task.
+ *
+ *   DELETE {base_url}/api/v1/projects/{id}/tasks/{taskId}
+ *     → delete a task. Returns 204 on success.
+ *     Use when: user explicitly asks to delete or remove a task.
+ */
+function buildTaskToolsHint(
+  projectId: string,
+  baseURL: string,
+): { listUrl: string; updateUrl: string; deleteUrl: string } {
+  return {
+    listUrl: `${baseURL}/api/v1/projects/${projectId}/tasks`,
+    updateUrl: `${baseURL}/api/v1/projects/${projectId}/tasks/{taskId}`,
+    deleteUrl: `${baseURL}/api/v1/projects/${projectId}/tasks/{taskId}`,
+  }
 }
 
 /**

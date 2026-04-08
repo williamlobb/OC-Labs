@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { TaskCard } from './TaskCard'
+import { TaskDetailModal } from './TaskDetailModal'
 import { cn } from '@/lib/utils/cn'
 import {
   BLOCKED_TASK_PROMPT_AFTER_HOURS,
@@ -41,6 +42,7 @@ function normalizeTask(task: Task): Task {
 
 export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewerRole }: TaskBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(() => initialTasks.map(normalizeTask))
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [decomposing, setDecomposing] = useState(false)
   const [syncingToJira, setSyncingToJira] = useState(false)
   const [jiraSyncMessage, setJiraSyncMessage] = useState<{ text: string; isError: boolean } | null>(null)
@@ -140,6 +142,43 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ depends_on: dependsOnIds }),
+      })
+      if (!res.ok) setTasks(previousTasks)
+    } catch {
+      setTasks(previousTasks)
+    }
+  }
+
+  async function handleEditTask(taskId: string, updates: Partial<Pick<Task, 'title' | 'body' | 'status' | 'assignee_id' | 'assigned_to_agent' | 'depends_on'>>) {
+    const previousTasks = tasks
+    setTasks((prev) =>
+      prev.map((task) => (task.id === taskId ? { ...task, ...updates } : task))
+    )
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (!res.ok) {
+        setTasks(previousTasks)
+      } else {
+        const updated = await res.json()
+        setTasks((prev) =>
+          prev.map((task) => (task.id === taskId ? normalizeTask(updated) : task))
+        )
+      }
+    } catch {
+      setTasks(previousTasks)
+    }
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    const previousTasks = tasks
+    setTasks((prev) => prev.filter((task) => task.id !== taskId))
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/tasks/${taskId}`, {
+        method: 'DELETE',
       })
       if (!res.ok) setTasks(previousTasks)
     } catch {
@@ -304,6 +343,7 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
                     onAssign={handleAssign}
                     onAgentToggle={handleAgentToggle}
                     onDependenciesChange={handleDependenciesChange}
+                    onInspect={setSelectedTaskId}
                   />
                 ))}
                 {displayedTasks.length === 0 && (
@@ -318,6 +358,22 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
           )
         })}
       </div>
+
+      {selectedTaskId && (() => {
+        const selectedTask = tasks.find((t) => t.id === selectedTaskId)
+        if (!selectedTask) return null
+        return (
+          <TaskDetailModal
+            task={selectedTask}
+            allTasks={tasks}
+            teamMembers={teamMembers}
+            canEdit={canEdit}
+            onClose={() => setSelectedTaskId(null)}
+            onSave={handleEditTask}
+            onDelete={handleDeleteTask}
+          />
+        )
+      })()}
     </div>
   )
 }

@@ -26,6 +26,7 @@ interface TaskCardProps {
   onAssign: (taskId: string, assigneeId: string | null) => void
   onAgentToggle: (taskId: string, value: boolean) => void
   onDependenciesChange: (taskId: string, dependsOnIds: string[]) => void
+  onInspect: (taskId: string) => void
 }
 
 export function TaskCard({
@@ -38,6 +39,7 @@ export function TaskCard({
   onAssign,
   onAgentToggle,
   onDependenciesChange,
+  onInspect,
 }: TaskCardProps) {
   const [dependencyToAdd, setDependencyToAdd] = useState('')
   const [showDepPicker, setShowDepPicker] = useState(false)
@@ -74,9 +76,13 @@ export function TaskCard({
 
   return (
     <div className="flex flex-col h-[260px] rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <p className="line-clamp-2 text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100">
+      {/* Header — click to inspect */}
+      <button
+        type="button"
+        onClick={() => onInspect(task.id)}
+        className="group flex w-full items-start justify-between gap-2 text-left"
+      >
+        <p className="line-clamp-2 text-sm font-medium leading-snug text-zinc-900 group-hover:text-zinc-600 dark:text-zinc-100 dark:group-hover:text-zinc-300">
           {task.title}
         </p>
         {task.assigned_to_agent && (
@@ -84,7 +90,7 @@ export function TaskCard({
             Agent
           </span>
         )}
-      </div>
+      </button>
 
       {/* Body */}
       {task.body && (
