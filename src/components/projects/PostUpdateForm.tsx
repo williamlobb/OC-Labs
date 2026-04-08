@@ -67,8 +67,19 @@ export function PostUpdateForm({ projectId, initialBody = '', autoFocus = false 
       onSubmit={handleSubmit}
       className="mb-4 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Post update</h3>
+      <textarea
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        autoFocus={autoFocus}
+        rows={4}
+        placeholder="Share what changed, what is blocked, or what help is needed."
+        className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 focus:border-zinc-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+      />
+
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {success && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{success}</p>}
+
+      <div className="mt-3 flex items-center justify-between">
         <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
           <input
             type="checkbox"
@@ -78,21 +89,6 @@ export function PostUpdateForm({ projectId, initialBody = '', autoFocus = false 
           />
           Mark as milestone
         </label>
-      </div>
-
-      <textarea
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        autoFocus={autoFocus}
-        rows={4}
-        placeholder="Share what changed, what is blocked, or what help is needed."
-        className="mt-3 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 focus:border-zinc-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-      />
-
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-      {success && <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{success}</p>}
-
-      <div className="mt-3 flex justify-end">
         <button
           type="submit"
           disabled={submitting}
