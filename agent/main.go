@@ -62,6 +62,8 @@ func main() {
 		PostUpdateDef,
 		CreateContextBlockDef,
 		CreateTasksDef,
+		UpdateTaskDef,
+		DeleteTaskDef,
 	}
 
 	agent := NewAgent(&client, tools)

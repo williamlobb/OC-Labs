@@ -33,21 +33,28 @@ type TaskInput struct {
 	Body  string `json:"body,omitempty" jsonschema_description:"Optional task details"`
 }
 
-// doPost performs a POST request to the OC Labs API with auth and JSON body.
-// It returns the response body as a string. On non-2xx status it returns the
-// response body as an error string so callers can surface it to the agent.
-func doPost(ctx ToolContext, url string, payload any) (string, error) {
-	bodyBytes, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("marshal request body: %w", err)
+// doRequest performs an HTTP request to the OC Labs API with auth and an optional JSON body.
+// method should be http.MethodPost, http.MethodPatch, http.MethodDelete, etc.
+// payload may be nil for requests with no body (e.g. DELETE).
+// Returns the response body as a string. On non-2xx status it returns an error.
+func doRequest(ctx ToolContext, method, url string, payload any) (string, error) {
+	var bodyReader io.Reader
+	if payload != nil {
+		bodyBytes, err := json.Marshal(payload)
+		if err != nil {
+			return "", fmt.Errorf("marshal request body: %w", err)
+		}
+		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(bodyBytes))
+	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("Cookie", fmt.Sprintf("sb-lmhntrqbxrzltppafjnu-auth-token=%s", ctx.AuthToken))
 
 	resp, err := http.DefaultClient.Do(req)
@@ -66,6 +73,11 @@ func doPost(ctx ToolContext, url string, payload any) (string, error) {
 	}
 
 	return string(respBody), nil
+}
+
+// doPost is a convenience wrapper around doRequest for POST calls.
+func doPost(ctx ToolContext, url string, payload any) (string, error) {
+	return doRequest(ctx, http.MethodPost, url, payload)
 }
 
 // PostUpdateTool posts a project update to the OC Labs API.
@@ -148,5 +160,91 @@ var CreateTasksDef = ToolDefinition{
 		}
 
 		return strings.Join(parts, ". "), nil
+	},
+}
+
+// UpdateTaskInput is the input schema for the update_task tool.
+// All fields except task_id are optional; only supplied fields are updated.
+type UpdateTaskInput struct {
+	TaskID           string   `json:"task_id" jsonschema_description:"ID of the task to update"`
+	Title            string   `json:"title,omitempty" jsonschema_description:"New title (non-empty string)"`
+	Body             string   `json:"body,omitempty" jsonschema_description:"New description body (empty string clears it)"`
+	Status           string   `json:"status,omitempty" jsonschema_description:"New status: todo | in_progress | done | blocked"`
+	AssigneeID       string   `json:"assignee_id,omitempty" jsonschema_description:"User ID to assign, or empty string to unassign"`
+	AssignedToAgent  *bool    `json:"assigned_to_agent,omitempty" jsonschema_description:"Whether the task is assigned to the agent"`
+	DependsOn        []string `json:"depends_on,omitempty" jsonschema_description:"Ordered list of task IDs this task depends on (replaces existing list)"`
+}
+
+// UpdateTaskDef updates a single task via PATCH.
+var UpdateTaskDef = ToolDefinition{
+	Name:        "update_task",
+	Description: "Update a task's title, body, status, assignee, agent flag, or dependencies. Only include fields you want to change. Use get_tasks first to find the task ID.",
+	InputSchema: GenerateSchema[UpdateTaskInput](),
+	Function: func(ctx ToolContext, input json.RawMessage) (string, error) {
+		var params UpdateTaskInput
+		if err := json.Unmarshal(input, &params); err != nil {
+			return "", fmt.Errorf("parse input: %w", err)
+		}
+		if params.TaskID == "" {
+			return "", fmt.Errorf("task_id is required")
+		}
+
+		// Build a map of only the fields that were supplied
+		updates := map[string]any{}
+		if params.Title != "" {
+			updates["title"] = params.Title
+		}
+		if params.Body != "" {
+			updates["body"] = params.Body
+		}
+		if params.Status != "" {
+			updates["status"] = params.Status
+		}
+		if params.AssigneeID != "" {
+			updates["assignee_id"] = params.AssigneeID
+		}
+		if params.AssignedToAgent != nil {
+			updates["assigned_to_agent"] = *params.AssignedToAgent
+		}
+		if params.DependsOn != nil {
+			updates["depends_on"] = params.DependsOn
+		}
+
+		url := fmt.Sprintf("%s/api/v1/projects/%s/tasks/%s", ctx.BaseURL, ctx.ProjectID, params.TaskID)
+		_, err := doRequest(ctx, http.MethodPatch, url, updates)
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("Task %s updated.", params.TaskID), nil
+	},
+}
+
+// DeleteTaskInput is the input schema for the delete_task tool.
+type DeleteTaskInput struct {
+	TaskID string `json:"task_id" jsonschema_description:"ID of the task to delete"`
+}
+
+// DeleteTaskDef deletes a single task via DELETE.
+var DeleteTaskDef = ToolDefinition{
+	Name:        "delete_task",
+	Description: "Permanently delete a task. Use get_tasks first to confirm the task ID. Only call this when the user explicitly asks to delete or remove a task.",
+	InputSchema: GenerateSchema[DeleteTaskInput](),
+	Function: func(ctx ToolContext, input json.RawMessage) (string, error) {
+		var params DeleteTaskInput
+		if err := json.Unmarshal(input, &params); err != nil {
+			return "", fmt.Errorf("parse input: %w", err)
+		}
+		if params.TaskID == "" {
+			return "", fmt.Errorf("task_id is required")
+		}
+
+		url := fmt.Sprintf("%s/api/v1/projects/%s/tasks/%s", ctx.BaseURL, ctx.ProjectID, params.TaskID)
+		_, err := doRequest(ctx, http.MethodDelete, url, nil)
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("Task %s deleted.", params.TaskID), nil
 	},
 }
