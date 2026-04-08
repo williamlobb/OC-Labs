@@ -49,6 +49,9 @@ Chat messages between user and agent live in component state only (ProjectChatPa
 ### ADR-013: Agent eagerness gated by tool description
 The Go agent's `get_project_context` tool has a reactive description (not imperative "always call first"). System prompt says "fetch only when user's request requires it." This prevents verbose context dumps on every greeting while preserving proactive fetching when needed (e.g., "what's the status?"). See `agent/tools_project.go:13` and `agent/main.go:45`.
 
+### ADR-015: Page-scoped agents use inline Anthropic SDK routes, not the Go agent
+The Discover page has a creation-only assistant at `POST /api/v1/discover/chat`. It uses the Anthropic SDK directly (Haiku 4.5, Node.js runtime, 60s timeout) with a system prompt that hard-codes guardrails: any off-topic request (existing projects, profile, settings, voting) is redirected, not answered. Tool use is single-purpose (`create_project`) and replicates the same DB writes + Slack/Jira fire-and-forget as `/api/v1/projects`. The Go agent at AGENT_URL is reserved for project-page chat only. New page-scoped agents should follow this inline SDK pattern — lean, typed, no agent harness overhead.
+
 ### ADR-014: Contributor attribution via `author_name` column
 `updates`, `context_blocks`, and `tasks` tables track who created them with `author_id` + `author_name` (string). For agent-authored items, `author_name = 'Omnia Agent'`. UI shows subtle avatar chip (initials in colour circle for humans, sparkle icon for agent) inline with the creation date. Ref: `src/components/ui/ContributorChip.tsx`.
 
