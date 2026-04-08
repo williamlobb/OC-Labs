@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { FilterableBoard } from '@/components/board/FilterableBoard'
+import { DiscoverChatPanel } from '@/components/chat/DiscoverChatPanel'
 import Link from 'next/link'
 
 export default async function DiscoverPage() {
@@ -38,7 +39,7 @@ export default async function DiscoverPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-[22rem]">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold text-zinc-900 dark:text-zinc-50">Discover</h1>
@@ -59,6 +60,13 @@ export default async function DiscoverPage() {
         votedProjectIds={votedProjectIds}
         joinedProjectIds={joinedProjectIds}
       />
+
+      {/* Persistent project-creation assistant */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
+        <div className="mx-auto max-w-7xl pointer-events-auto">
+          <DiscoverChatPanel />
+        </div>
+      </div>
     </div>
   )
 }
