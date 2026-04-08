@@ -47,7 +47,7 @@ export function ProjectCard(props: ProjectCardViewProps) {
       role="article"
       onClick={onClick}
       className={cn(
-        'flex h-[18rem] w-full cursor-pointer flex-col rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900',
+        'flex w-full cursor-pointer flex-col rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900',
         needsHelp && 'ring-2 ring-red-400'
       )}
     >
@@ -82,7 +82,7 @@ export function ProjectCard(props: ProjectCardViewProps) {
       </div>
 
       {/* Footer */}
-      <div className="mt-auto pt-3">
+      <div className="mt-3">
         <div className="border-t border-zinc-100 pt-3 dark:border-zinc-800">
           <div className="flex items-center">
             {visibleTeamMembers.map((member, index) => (
