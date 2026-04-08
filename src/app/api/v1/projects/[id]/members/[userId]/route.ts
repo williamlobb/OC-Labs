@@ -37,7 +37,8 @@ export async function DELETE(
     .eq('project_id', projectId)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[members] delete failed:', error.message)
+    return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

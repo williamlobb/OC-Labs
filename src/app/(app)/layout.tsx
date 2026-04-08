@@ -1,8 +1,16 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { SignOutButton } from '@/components/auth/SignOutButton'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const platformRole = user ? await getPlatformRole(supabase, user.id) : 'user'
+  const showAdmin = isPowerUser(platformRole)
+
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
@@ -33,6 +41,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             >
               Settings
             </Link>
+            {showAdmin && (
+              <Link
+                href="/admin"
+                className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+              >
+                Admin
+              </Link>
+            )}
             <SignOutButton />
           </nav>
         </div>

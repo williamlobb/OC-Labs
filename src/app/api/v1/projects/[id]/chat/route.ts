@@ -4,8 +4,10 @@ import { canEditProjectContent } from '@/lib/auth/permissions'
 import { trimHistoryToBudget } from '@/lib/chat/trim-history'
 
 export const runtime = 'edge'
-export const maxDuration = 60
-const AGENT_FETCH_TIMEOUT_MS = 45_000
+export const maxDuration = 90
+// Keep the upstream fetch timeout slightly above the agent's own run timeout,
+// so the agent can return a clean timeout hint before this route aborts.
+const AGENT_FETCH_TIMEOUT_MS = 55_000
 const CHAT_HISTORY_CHAR_BUDGET = 8_000
 const FRIENDLY_TIMEOUT_MESSAGE =
   'The project assistant timed out while processing that request. Try narrowing scope (for example: one repository, folder, or file).'

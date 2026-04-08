@@ -33,9 +33,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'email is required' }, { status: 400 })
   }
 
-  const requestedPlatformRole = body.platform_role as PlatformRole | undefined
+  const VALID_PLATFORM_ROLES: PlatformRole[] = ['user', 'power_user']
+  const VALID_MEMBER_ROLES: MemberRole[] = ['owner', 'tech_lead', 'contributor', 'observer', 'interested']
+
+  const rawPlatformRole = body.platform_role
+  if (rawPlatformRole !== undefined && !VALID_PLATFORM_ROLES.includes(rawPlatformRole as PlatformRole)) {
+    return NextResponse.json({ error: 'Invalid platform_role' }, { status: 400 })
+  }
+  const requestedPlatformRole = rawPlatformRole as PlatformRole | undefined
+
   const projectId = typeof body.project_id === 'string' ? body.project_id : undefined
-  const projectRole = body.project_role as MemberRole | undefined
+
+  const rawProjectRole = body.project_role
+  if (rawProjectRole !== undefined && !VALID_MEMBER_ROLES.includes(rawProjectRole as MemberRole)) {
+    return NextResponse.json({ error: 'Invalid project_role' }, { status: 400 })
+  }
+  const projectRole = rawProjectRole as MemberRole | undefined
 
   const hasPlatformRole = !!requestedPlatformRole
   const hasProjectRole = !!(projectId && projectRole)
@@ -70,10 +83,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .single()
 
   if (insertError || !invitation) {
-    return NextResponse.json(
-      { error: insertError?.message ?? 'Failed to create invitation' },
-      { status: 500 }
-    )
+    console.error('[invitations] insert failed:', insertError?.message)
+    return NextResponse.json({ error: 'Failed to create invitation' }, { status: 500 })
   }
 
   const { data: inviterProfile } = await supabaseAdmin

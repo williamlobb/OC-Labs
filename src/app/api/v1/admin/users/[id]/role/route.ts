@@ -38,13 +38,19 @@ export async function PATCH(
     )
   }
 
+  // Prevent a power_user from demoting themselves (operational safeguard)
+  if (targetUserId === user.id && newRole !== 'power_user') {
+    return NextResponse.json({ error: 'Cannot demote yourself' }, { status: 400 })
+  }
+
   const { error } = await supabaseAdmin
     .from('users')
     .update({ platform_role: newRole })
     .eq('id', targetUserId)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[admin/role] update failed:', error.message)
+    return NextResponse.json({ error: 'Failed to update role' }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })
