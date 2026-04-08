@@ -48,9 +48,9 @@ describe('rendering', () => {
     expect(screen.getByText('JD')).toBeInTheDocument()
   })
 
-  it('renders owner name', () => {
+  it('exposes owner name on avatar hover', () => {
     render(<ProjectCard {...baseProps()} />)
-    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.getByLabelText('Jane Doe')).toBeInTheDocument()
   })
 
   it('renders the vote count', () => {
@@ -68,15 +68,15 @@ describe('status badge', () => {
   })
 })
 
-describe('needs help banner', () => {
-  it('shows needs-help banner when needsHelp is true', () => {
+describe('needs help state', () => {
+  it('shows "We need you" CTA when needsHelp is true', () => {
     render(<ProjectCard {...baseProps()} needsHelp={true} />)
-    expect(screen.getByTestId('needs-help-banner')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'We need you' })).toBeInTheDocument()
   })
 
-  it('hides needs-help banner when needsHelp is false', () => {
+  it('shows default CTA when needsHelp is false', () => {
     render(<ProjectCard {...baseProps()} needsHelp={false} />)
-    expect(screen.queryByTestId('needs-help-banner')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Request to join' })).toBeInTheDocument()
   })
 })
 
@@ -110,9 +110,9 @@ describe('vote button', () => {
 })
 
 describe('join button', () => {
-  it('shows "Join" when hasJoined is false', () => {
+  it('shows "Request to join" when hasJoined is false', () => {
     render(<ProjectCard {...baseProps()} hasJoined={false} />)
-    expect(screen.getByRole('button', { name: 'Join' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Request to join' })).toBeInTheDocument()
   })
 
   it('shows "Joined" when hasJoined is true', () => {
@@ -120,11 +120,16 @@ describe('join button', () => {
     expect(screen.getByRole('button', { name: 'Joined' })).toBeInTheDocument()
   })
 
+  it('shows "We need you" when project needs help', () => {
+    render(<ProjectCard {...baseProps()} hasJoined={false} needsHelp={true} />)
+    expect(screen.getByRole('button', { name: 'We need you' })).toBeInTheDocument()
+  })
+
   it('calls onJoin when clicked', async () => {
     const props = baseProps()
     const user = userEvent.setup()
     render(<ProjectCard {...props} />)
-    await user.click(screen.getByRole('button', { name: 'Join' }))
+    await user.click(screen.getByRole('button', { name: 'Request to join' }))
     expect(props.onJoin).toHaveBeenCalledOnce()
   })
 
@@ -132,7 +137,7 @@ describe('join button', () => {
     const props = baseProps()
     const user = userEvent.setup()
     render(<ProjectCard {...props} />)
-    await user.click(screen.getByRole('button', { name: 'Join' }))
+    await user.click(screen.getByRole('button', { name: 'Request to join' }))
     expect(props.onClick).not.toHaveBeenCalled()
   })
 })

@@ -9,9 +9,10 @@ import { NextRequest } from 'next/server'
 
 // ---- mocks ----------------------------------------------------------------
 
-const { mockGetUser, mockFrom } = vi.hoisted(() => ({
+const { mockGetUser, mockFrom, mockCanEditProjectContent } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockFrom: vi.fn(),
+  mockCanEditProjectContent: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -19,6 +20,10 @@ vi.mock('@/lib/supabase/server', () => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
   }),
+}))
+
+vi.mock('@/lib/auth/permissions', () => ({
+  canEditProjectContent: mockCanEditProjectContent,
 }))
 
 // ---- module under test ----------------------------------------------------
@@ -60,11 +65,11 @@ describe('PUT /api/v1/projects/[id]/context/[blockId] — empty body guard', () 
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    mockCanEditProjectContent.mockResolvedValue(true)
   })
 
   it('returns 400 when no meaningful fields are provided', async () => {
-    // membership: owner
-    mockFrom.mockReturnValue(makeQuery({ data: { role: 'owner' }, error: null }))
+    mockFrom.mockReturnValue(makeQuery({ data: { id: 'block-1', version: 1 }, error: null }))
 
     const res = await PUT(makeRequest({}), { params })
     expect(res.status).toBe(400)
@@ -72,7 +77,7 @@ describe('PUT /api/v1/projects/[id]/context/[blockId] — empty body guard', () 
   })
 
   it('returns 400 when only whitespace is provided for title and body', async () => {
-    mockFrom.mockReturnValue(makeQuery({ data: { role: 'owner' }, error: null }))
+    mockFrom.mockReturnValue(makeQuery({ data: { id: 'block-1', version: 1 }, error: null }))
 
     const res = await PUT(makeRequest({ title: '   ', body: '   ' }), { params })
     expect(res.status).toBe(400)
@@ -82,8 +87,7 @@ describe('PUT /api/v1/projects/[id]/context/[blockId] — empty body guard', () 
     let call = 0
     mockFrom.mockImplementation(() => {
       call++
-      if (call === 1) return makeQuery({ data: { role: 'owner' }, error: null })   // membership
-      if (call === 2) return makeQuery({ data: { version: 1 }, error: null })       // fetch existing
+      if (call === 1) return makeQuery({ data: { version: 1 }, error: null })       // fetch existing
       return makeQuery({ data: { id: 'block-1', title: 'New title', version: 2 }, error: null }) // update
     })
 

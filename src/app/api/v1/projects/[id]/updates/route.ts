@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { verifyApiKey } from '@/lib/auth/api-key'
+import { canEditProjectContent } from '@/lib/auth/permissions'
 
 export async function POST(
   req: NextRequest,
@@ -23,20 +24,19 @@ export async function POST(
     userId = user.id
   }
 
-  // Verify project exists and that the caller is a member (owner or contributor)
-  const [{ data: project }, { data: membership }] = await Promise.all([
-    supabaseAdmin.from('projects').select('id').eq('id', id).single(),
-    supabaseAdmin
-      .from('project_members')
-      .select('role')
-      .eq('project_id', id)
-      .eq('user_id', userId)
-      .maybeSingle(),
-  ])
+  // Verify project exists
+  const { data: project } = await supabaseAdmin
+    .from('projects')
+    .select('id')
+    .eq('id', id)
+    .single()
 
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  if (!membership || !['owner', 'contributor'].includes(membership.role)) {
+  // Check edit permission via centralized helper
+  const supabase = await createServerSupabaseClient()
+  const allowed = await canEditProjectContent(supabase, userId, id)
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

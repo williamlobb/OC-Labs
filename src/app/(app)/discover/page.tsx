@@ -1,12 +1,16 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { FilterableBoard } from '@/components/board/FilterableBoard'
 import { DiscoverChatPanel } from '@/components/chat/DiscoverChatPanel'
+import { getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 import Link from 'next/link'
 
 export default async function DiscoverPage() {
   const supabase = await createServerSupabaseClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+
+  const platformRole = user ? await getPlatformRole(supabase, user.id) : 'user'
+  const canCreate = isPowerUser(platformRole)
 
   // Fetch all projects ordered by vote_count desc
   const { data: projects } = await supabase
@@ -82,12 +86,14 @@ export default async function DiscoverPage() {
             Browse and vote on projects across the Omnia Collective.
           </p>
         </div>
-        <Link
-          href="/projects/new"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          New project
-        </Link>
+        {canCreate && (
+          <Link
+            href="/projects/new"
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            New project
+          </Link>
+        )}
       </div>
 
       <FilterableBoard
@@ -96,12 +102,14 @@ export default async function DiscoverPage() {
         joinedProjectIds={joinedProjectIds}
       />
 
-      {/* Persistent project-creation assistant */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
-        <div className="mx-auto max-w-7xl pointer-events-auto">
-          <DiscoverChatPanel />
+      {/* Persistent project-creation assistant — power_user only */}
+      {canCreate && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
+          <div className="mx-auto max-w-7xl pointer-events-auto">
+            <DiscoverChatPanel />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

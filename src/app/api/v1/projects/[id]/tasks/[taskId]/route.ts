@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { canEditProjectContent } from '@/lib/auth/permissions'
 
 const VALID_STATUSES = ['todo', 'in_progress', 'done', 'blocked'] as const
 type TaskStatus = (typeof VALID_STATUSES)[number]
@@ -24,14 +25,8 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: membership } = await supabase
-    .from('project_members')
-    .select('role')
-    .eq('project_id', id)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!membership || !['owner', 'contributor'].includes(membership.role)) {
+  const allowed = await canEditProjectContent(supabase, user.id, id)
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -185,14 +180,8 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: membership } = await supabase
-    .from('project_members')
-    .select('role')
-    .eq('project_id', id)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!membership || !['owner', 'contributor'].includes(membership.role)) {
+  const allowed = await canEditProjectContent(supabase, user.id, id)
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

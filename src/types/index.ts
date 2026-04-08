@@ -1,7 +1,8 @@
 // src/types/index.ts
 
 export type ProjectStatus = 'Idea' | 'In progress' | 'Needs help' | 'Paused' | 'Shipped'
-export type MemberRole = 'owner' | 'contributor' | 'interested' | 'observer'
+export type MemberRole = 'owner' | 'contributor' | 'interested' | 'observer' | 'tech_lead'
+export type PlatformRole = 'user' | 'power_user'
 
 export interface AvatarColor {
   bg: string
@@ -25,6 +26,19 @@ export interface User {
   linkedin_url?: string
   github_username?: string
   cowork_synced_at?: string
+  platform_role?: PlatformRole
+  created_at: string
+}
+
+export interface RoleInvitation {
+  id: string
+  email: string
+  platform_role: PlatformRole | null
+  project_id: string | null
+  project_role: MemberRole | null
+  invited_by: string | null
+  token: string
+  accepted_at: string | null
   created_at: string
 }
 

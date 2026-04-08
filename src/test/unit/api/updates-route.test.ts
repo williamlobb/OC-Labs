@@ -9,10 +9,11 @@ import { NextRequest } from 'next/server'
 
 // ---- mocks ----------------------------------------------------------------
 
-const { mockGetUser, mockVerifyApiKey, mockAdminFrom } = vi.hoisted(() => ({
+const { mockGetUser, mockVerifyApiKey, mockAdminFrom, mockCanEditProjectContent } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockVerifyApiKey: vi.fn(),
   mockAdminFrom: vi.fn(),
+  mockCanEditProjectContent: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -27,6 +28,10 @@ vi.mock('@/lib/auth/api-key', () => ({
 
 vi.mock('@/lib/supabase/admin', () => ({
   supabaseAdmin: { from: mockAdminFrom },
+}))
+
+vi.mock('@/lib/auth/permissions', () => ({
+  canEditProjectContent: mockCanEditProjectContent,
 }))
 
 // ---- module under test ----------------------------------------------------
@@ -69,19 +74,16 @@ function makeQuery(result: unknown) {
 // ---- tests -----------------------------------------------------------------
 
 describe('POST /api/v1/projects/[id]/updates — membership check', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockCanEditProjectContent.mockResolvedValue(true)
+  })
 
   it('returns 403 when session user is not a project member', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    mockCanEditProjectContent.mockResolvedValue(false)
 
-    let call = 0
-    mockAdminFrom.mockImplementation(() => {
-      call++
-      // 1st call: project lookup → found; 2nd call: membership → null
-      return call === 1
-        ? makeQuery({ data: { id: 'proj-1' }, error: null })
-        : makeQuery({ data: null, error: null })
-    })
+    mockAdminFrom.mockImplementation(() => makeQuery({ data: { id: 'proj-1' }, error: null }))
 
     const res = await POST(makeRequest({ body: 'An update' }), { params })
     expect(res.status).toBe(403)
@@ -90,14 +92,9 @@ describe('POST /api/v1/projects/[id]/updates — membership check', () => {
 
   it('returns 403 when session user has role "interested"', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    mockCanEditProjectContent.mockResolvedValue(false)
 
-    let call = 0
-    mockAdminFrom.mockImplementation(() => {
-      call++
-      return call === 1
-        ? makeQuery({ data: { id: 'proj-1' }, error: null })
-        : makeQuery({ data: { role: 'interested' }, error: null })
-    })
+    mockAdminFrom.mockImplementation(() => makeQuery({ data: { id: 'proj-1' }, error: null }))
 
     const res = await POST(makeRequest({ body: 'An update' }), { params })
     expect(res.status).toBe(403)
@@ -105,14 +102,9 @@ describe('POST /api/v1/projects/[id]/updates — membership check', () => {
 
   it('returns 403 when bearer-auth user is not a project member', async () => {
     mockVerifyApiKey.mockResolvedValue('user-api-1')
+    mockCanEditProjectContent.mockResolvedValue(false)
 
-    let call = 0
-    mockAdminFrom.mockImplementation(() => {
-      call++
-      return call === 1
-        ? makeQuery({ data: { id: 'proj-1' }, error: null })
-        : makeQuery({ data: null, error: null })
-    })
+    mockAdminFrom.mockImplementation(() => makeQuery({ data: { id: 'proj-1' }, error: null }))
 
     const res = await POST(makeRequest({ body: 'An update' }, 'Bearer valid-key'), { params })
     expect(res.status).toBe(403)
@@ -127,14 +119,8 @@ describe('POST /api/v1/projects/[id]/updates — membership check', () => {
 
   it('returns 400 when body field is missing', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-
-    let call = 0
-    mockAdminFrom.mockImplementation(() => {
-      call++
-      return call === 1
-        ? makeQuery({ data: { id: 'proj-1' }, error: null })
-        : makeQuery({ data: { role: 'contributor' }, error: null })
-    })
+    mockCanEditProjectContent.mockResolvedValue(true)
+    mockAdminFrom.mockImplementation(() => makeQuery({ data: { id: 'proj-1' }, error: null }))
 
     const res = await POST(makeRequest({ milestone: false }), { params })
     expect(res.status).toBe(400)

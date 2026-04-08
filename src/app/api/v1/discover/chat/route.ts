@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { notifyNewProject } from '@/lib/notifications/slack-events'
 import { createEpic } from '@/lib/jira/client'
+import { canCreateProject } from '@/lib/auth/permissions'
 import type { ProjectStatus } from '@/types'
 
 export const runtime = 'nodejs'
@@ -187,11 +188,18 @@ export async function POST(req: NextRequest): Promise<Response> {
       }
 
       if (finalMsg.stop_reason === 'tool_use' && toolUseBlock) {
-        const result = await createProject(
-          toolUseBlock.input as Record<string, unknown>,
-          authedUser.id,
-          authedUser.email ?? 'Unknown'
-        )
+        const permitted = await canCreateProject(supabase, authedUser.id)
+
+        let result: { id: string; title: string } | { error: string }
+        if (!permitted) {
+          result = { error: 'You do not have permission to create projects.' }
+        } else {
+          result = await createProject(
+            toolUseBlock.input as Record<string, unknown>,
+            authedUser.id,
+            authedUser.email ?? 'Unknown'
+          )
+        }
 
         const toolResultContent =
           'error' in result

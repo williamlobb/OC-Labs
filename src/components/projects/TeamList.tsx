@@ -17,6 +17,7 @@ const ROLE_LABELS: Record<MemberRole, string> = {
   contributor: 'Contributor',
   interested: 'Interested',
   observer: 'Observer',
+  tech_lead: 'Tech Lead',
 }
 
 function getInitials(name: string): string {

@@ -4,6 +4,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { upsertUser } from '@/lib/auth/upsert-user'
 import { isSafeRedirect } from '@/lib/utils/is-safe-redirect'
 import { syncCoWorkProfile } from '@/lib/cowork/sync'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = request.nextUrl
@@ -58,6 +59,38 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       syncCoWorkProfile(user.id, user.email).catch((err) =>
         console.error(JSON.stringify({ event: 'cowork_sync_error', error: String(err) }))
       )
+    }
+  }
+
+  // After successful auth, apply any pending invitations for this user's email
+  const { data: { user: authedUser } } = await supabase.auth.getUser()
+  if (authedUser?.email) {
+    const { data: pendingInvites } = await supabaseAdmin
+      .from('role_invitations')
+      .select('*')
+      .eq('email', authedUser.email)
+      .is('accepted_at', null)
+
+    for (const invite of (pendingInvites ?? [])) {
+      if (invite.platform_role) {
+        await supabaseAdmin
+          .from('users')
+          .update({ platform_role: invite.platform_role })
+          .eq('id', authedUser.id)
+      }
+      if (invite.project_id && invite.project_role) {
+        await supabaseAdmin
+          .from('project_members')
+          .upsert({
+            user_id: authedUser.id,
+            project_id: invite.project_id,
+            role: invite.project_role
+          }, { onConflict: 'user_id,project_id' })
+      }
+      await supabaseAdmin
+        .from('role_invitations')
+        .update({ accepted_at: new Date().toISOString() })
+        .eq('id', invite.id)
     }
   }
 

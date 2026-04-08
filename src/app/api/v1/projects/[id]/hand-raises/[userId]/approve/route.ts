@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { canManageMembers } from '@/lib/auth/permissions'
 
 export async function POST(
   _req: NextRequest,
@@ -13,17 +14,8 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('owner_id')
-    .eq('id', id)
-    .single()
-
-  if (!project) {
-    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-  }
-
-  if (project.owner_id !== user.id) {
+  const allowed = await canManageMembers(supabase, user.id, id)
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { canEditProjectContent } from '@/lib/auth/permissions'
 
 export const runtime = 'edge'
 export const maxDuration = 60
@@ -20,14 +21,15 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const allowed = await canEditProjectContent(supabase, user.id, id)
+  if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
   const { data: membership } = await supabase
     .from('project_members')
     .select('role')
     .eq('project_id', id)
     .eq('user_id', user.id)
     .maybeSingle()
-
-  if (!membership) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
   const { message, history: clientHistory } = body
@@ -66,7 +68,7 @@ export async function POST(
         auth_token: authToken,
         base_url: baseURL,
         github_repos: project?.github_repos ?? [],
-        is_owner: membership.role === 'owner',
+        is_owner: membership?.role === 'owner',
       }),
     })
   } catch {

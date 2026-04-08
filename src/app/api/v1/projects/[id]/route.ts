@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { canEditProjectSettings, canDeleteProject } from '@/lib/auth/permissions'
 import type { ProjectStatus } from '@/types'
 
 const VALID_STATUSES: ProjectStatus[] = ['Idea', 'In progress', 'Needs help', 'Paused', 'Shipped']
@@ -16,16 +17,8 @@ export async function PUT(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: existing } = await supabase
-    .from('projects')
-    .select('owner_id')
-    .eq('id', id)
-    .single()
-
-  if (!existing) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-  if (existing.owner_id !== user.id) {
+  const allowed = await canEditProjectSettings(supabase, user.id, id)
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -75,16 +68,8 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: existing } = await supabase
-    .from('projects')
-    .select('owner_id')
-    .eq('id', id)
-    .single()
-
-  if (!existing) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-  if (existing.owner_id !== user.id) {
+  const allowed = await canDeleteProject(supabase, user.id, id)
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

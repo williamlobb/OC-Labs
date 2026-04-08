@@ -13,6 +13,7 @@ import { NextRequest } from 'next/server'
 const { mockExchangeCode } = vi.hoisted(() => ({ mockExchangeCode: vi.fn() }))
 const { mockGetUser } = vi.hoisted(() => ({ mockGetUser: vi.fn() }))
 const { mockUpsertUser } = vi.hoisted(() => ({ mockUpsertUser: vi.fn() }))
+const { mockAdminFrom } = vi.hoisted(() => ({ mockAdminFrom: vi.fn() }))
 const { mockCreateServerClient } = vi.hoisted(() => ({
   mockCreateServerClient: vi.fn(),
 }))
@@ -34,6 +35,10 @@ vi.mock('@/lib/cowork/sync', () => ({
   syncCoWorkProfile: vi.fn().mockResolvedValue({ synced: true }),
 }))
 
+vi.mock('@/lib/supabase/admin', () => ({
+  supabaseAdmin: { from: mockAdminFrom },
+}))
+
 // ---- module under test ----------------------------------------------------
 import { GET } from '@/app/auth/callback/route'
 
@@ -52,6 +57,24 @@ function getRedirectPath(response: Response): string {
   return new URL(location).pathname
 }
 
+function makeAdminQuery() {
+  const q = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    is: vi.fn(),
+    update: vi.fn(),
+    upsert: vi.fn(),
+  } as Record<string, ReturnType<typeof vi.fn>>
+
+  q.select.mockReturnValue(q)
+  q.eq.mockReturnValue(q)
+  q.update.mockReturnValue(q)
+  q.upsert.mockResolvedValue({ error: null })
+  q.is.mockResolvedValue({ data: [], error: null })
+
+  return q
+}
+
 // ---- tests -----------------------------------------------------------------
 
 describe('GET /auth/callback', () => {
@@ -59,7 +82,9 @@ describe('GET /auth/callback', () => {
     mockExchangeCode.mockReset()
     mockGetUser.mockReset()
     mockUpsertUser.mockReset()
+    mockAdminFrom.mockReset()
     mockCreateServerClient.mockClear()
+    mockAdminFrom.mockImplementation(() => makeAdminQuery())
   })
 
   describe('missing code parameter', () => {

@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { canEditProjectSettings } from '@/lib/auth/permissions'
 import { ProjectForm } from '@/components/projects/ProjectForm'
 
 interface PageProps {
@@ -13,14 +14,13 @@ export default async function EditProjectPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const [{ data: project }, allowed] = await Promise.all([
+    supabase.from('projects').select('*').eq('id', id).single(),
+    canEditProjectSettings(supabase, user.id, id),
+  ])
 
   if (!project) notFound()
-  if (project.owner_id !== user.id) notFound()
+  if (!allowed) notFound()
 
   return (
     <div className="space-y-6">

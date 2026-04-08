@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { notifyNewProject } from '@/lib/notifications/slack-events'
 import { createEpic } from '@/lib/jira/client'
+import { canCreateProject } from '@/lib/auth/permissions'
 import type { ProjectStatus } from '@/types'
 
 const VALID_STATUSES: ProjectStatus[] = ['Idea', 'In progress', 'Needs help', 'Paused', 'Shipped']
@@ -13,6 +14,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const allowed = await canCreateProject(supabase, user.id)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   let body: Record<string, unknown>

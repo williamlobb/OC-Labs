@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { canEditProjectSettings } from '@/lib/auth/permissions'
 import { notifyNeedsHelp } from '@/lib/notifications/slack'
 
 export async function POST(
@@ -14,18 +15,19 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const allowed = await canEditProjectSettings(supabase, user.id, id)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { data: project } = await supabase
     .from('projects')
-    .select('owner_id, title, needs_help, skills_needed, users!projects_owner_id_fkey(name)')
+    .select('title, needs_help, skills_needed, users!projects_owner_id_fkey(name)')
     .eq('id', id)
     .single()
 
   if (!project) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-
-  if (project.owner_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden — only the project owner can toggle needs_help' }, { status: 403 })
   }
 
   const newValue = !project.needs_help
