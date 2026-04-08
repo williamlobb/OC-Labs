@@ -4,6 +4,19 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils/cn'
+import { useSpinnerVerb } from '@/lib/chat/use-spinner-verb'
+
+function WaitingIndicator({ active }: { active: boolean }) {
+  const verb = useSpinnerVerb(active)
+  return (
+    <span
+      aria-live="polite"
+      className="inline-block leading-5 min-h-[1.25rem] text-zinc-400"
+    >
+      {verb}\u2026
+    </span>
+  )
+}
 
 interface Message {
   id: string
@@ -172,9 +185,7 @@ export function DiscoverChat({ initialMessages, onMessagesChange }: DiscoverChat
                   </ReactMarkdown>
                 </div>
               ) : (
-                msg.content || (
-                  <span className="inline-block h-4 w-4 animate-pulse rounded-full bg-zinc-400" />
-                )
+                msg.content || <WaitingIndicator active={streaming} />
               )}
             </div>
           </div>

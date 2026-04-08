@@ -11,10 +11,9 @@ function WaitingIndicator({ active }: { active: boolean }) {
   return (
     <span
       aria-live="polite"
-      className="inline-flex items-center gap-1.5 leading-5 min-h-[1.25rem]"
+      className="inline-block leading-5 min-h-[1.25rem] text-zinc-400"
     >
-      <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-400" />
-      <span className="text-zinc-400">{verb}\u2026</span>
+      {verb}\u2026
     </span>
   )
 }

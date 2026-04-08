@@ -64,6 +64,12 @@ Role assignment is managed via `role_invitations` + invitation tokens: power use
 ### ADR-018: Agent repo context now includes linked repos and file discovery
 `GET /api/v1/projects/[id]/context` now returns `project.github_repos` (plus `notion_url`), so `get_project_context` gives the model the same linked repos shown in the UI. The Go agent now includes linked repos in its system prompt and has a `list_repo_files` tool (in addition to `read_repo_file`) for repository path discovery during planning/context work. Repo parsing accepts both full GitHub URLs and `owner/repo` shorthand.
 
+### ADR-019: Project chat is bounded for reliability under repo-analysis load
+After repo-discovery tooling was added, project chat could exceed model input/token-rate limits and fail after long waits. Guardrails are now enforced in both Next and agent layers: project chat route normalizes+trims history, parses chunked Supabase auth cookies robustly, and applies a 45s upstream fetch timeout with clearer error propagation to UI. Go agent execution is capped (50s request context, 6 tool iterations, lower max output tokens per model call), and repo tool payloads are constrained (default file-list limit 80, max 200; file read truncation at 3500 chars). System prompt now instructs shallow repo inspection first (<=3 files) before deep scans.
+
+### ADR-020: Project chat now normalizes platform errors and routes repo-read prompts to Sonnet 4.5
+Project chat no longer surfaces raw upstream platform errors (e.g. `FUNCTION_INVOCATION_TIMEOUT`) directly to users. Both the Next.js project chat route and client-side error parser now map timeout/unavailable signatures to friendly guidance. The Go agent now uses intent-based model routing: repo/codebase-reading prompts default to `claude-sonnet-4-5`, general chat defaults to `claude-sonnet-4-6`, and invalid-model failures fall back to the general model. Routing can be overridden with `AGENT_MODEL_GENERAL` and `AGENT_MODEL_REPO_READ`.
+
 ## Stack
 
 Framework: Next.js 15 App Router
