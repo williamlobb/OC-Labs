@@ -222,6 +222,67 @@ var UpdateTaskDef = ToolDefinition{
 	},
 }
 
+// UpdateProjectInput is the input schema for the update_project tool.
+// All fields are optional; only supplied fields are updated.
+type UpdateProjectInput struct {
+	Title        string   `json:"title,omitempty" jsonschema_description:"New project title (non-empty)"`
+	Summary      string   `json:"summary,omitempty" jsonschema_description:"New project summary / description"`
+	Status       string   `json:"status,omitempty" jsonschema_description:"New status: Idea | In progress | Needs help | Paused | Shipped"`
+	SkillsNeeded []string `json:"skills_needed,omitempty" jsonschema_description:"Full list of skills needed (replaces existing list)"`
+	GitHubRepos  []string `json:"github_repos,omitempty" jsonschema_description:"Full list of GitHub repo URLs (replaces existing list)"`
+	NotionURL    string   `json:"notion_url,omitempty" jsonschema_description:"Notion page URL for this project"`
+}
+
+// UpdateProjectDef edits the project's core fields via PUT.
+var UpdateProjectDef = ToolDefinition{
+	Name:        "update_project",
+	Description: "Edit the project's details: title, summary, status, skills needed, GitHub repos, or Notion URL. Use this when the user wants to change project information — NOT for posting a status update to the activity feed. Only the project owner can call this.",
+	InputSchema: GenerateSchema[UpdateProjectInput](),
+	Function: func(ctx ToolContext, input json.RawMessage) (string, error) {
+		var params UpdateProjectInput
+		if err := json.Unmarshal(input, &params); err != nil {
+			return "", fmt.Errorf("parse input: %w", err)
+		}
+
+		// Build a map of only the fields that were supplied
+		updates := map[string]any{}
+		if params.Title != "" {
+			updates["title"] = params.Title
+		}
+		if params.Summary != "" {
+			updates["summary"] = params.Summary
+		}
+		if params.Status != "" {
+			updates["status"] = params.Status
+		}
+		if params.SkillsNeeded != nil {
+			updates["skills_needed"] = params.SkillsNeeded
+		}
+		if params.GitHubRepos != nil {
+			updates["github_repos"] = params.GitHubRepos
+		}
+		if params.NotionURL != "" {
+			updates["notion_url"] = params.NotionURL
+		}
+
+		if len(updates) == 0 {
+			return "", fmt.Errorf("no fields provided to update")
+		}
+
+		url := fmt.Sprintf("%s/api/v1/projects/%s", ctx.BaseURL, ctx.ProjectID)
+		_, err := doRequest(ctx, http.MethodPut, url, updates)
+		if err != nil {
+			return "", err
+		}
+
+		var changed []string
+		for k := range updates {
+			changed = append(changed, k)
+		}
+		return fmt.Sprintf("Project updated: %s.", strings.Join(changed, ", ")), nil
+	},
+}
+
 // DeleteTaskInput is the input schema for the delete_task tool.
 type DeleteTaskInput struct {
 	TaskID string `json:"task_id" jsonschema_description:"ID of the task to delete"`

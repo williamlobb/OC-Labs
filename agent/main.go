@@ -19,6 +19,7 @@ type ChatRequest struct {
 	AuthToken   string           `json:"auth_token"`
 	BaseURL     string           `json:"base_url"`
 	GitHubRepos []string         `json:"github_repos"`
+	IsOwner     bool             `json:"is_owner"`
 }
 
 type HistoryMessage struct {
@@ -26,7 +27,27 @@ type HistoryMessage struct {
 	Content string `json:"content"`
 }
 
-const systemPrompt = `You are a project agent for OC Labs. You help team members manage their project by reading context, writing updates, creating context blocks, decomposing work into tasks, and reading linked repositories.
+func buildSystemPrompt(isOwner bool) string {
+	ownerSection := ""
+	if isOwner {
+		ownerSection = `
+## Owner capabilities
+You are talking to the project owner. You can edit project details using update_project.
+
+CRITICAL distinction — two completely separate actions:
+- update_project  → edits the project record (title, summary, status, skills, repos, Notion URL). Use when the user says "update the summary", "change the status", "add a skill", "edit the project", etc.
+- post_update     → appends a new entry to the activity feed visible to all members. Only use this when the user explicitly asks to "post an update", "share an update", "announce", or similar.
+
+NEVER use post_update when the user means to edit project fields. If the intent is ambiguous, ask — but it usually isn't.
+`
+	} else {
+		ownerSection = `
+## Permissions
+You are talking to a contributor (not the owner). You cannot edit project details or post updates on their behalf. Focus on reading context, answering questions, and managing tasks you are assigned.
+`
+	}
+
+	return `You are a project agent for OC Labs. You help team members manage their project by reading context, writing updates, creating context blocks, decomposing work into tasks, and reading linked repositories.
 
 ## Personality
 - Be extremely brief. No filler, no pleasantries.
@@ -42,7 +63,8 @@ const systemPrompt = `You are a project agent for OC Labs. You help team members
 - When creating tasks, set realistic scope — prefer more small tasks over fewer large ones.
 
 ## Tools
-Only fetch project data when the user's request requires it. Before creating new context blocks or tasks, check for existing ones to avoid duplicates.`
+Only fetch project data when the user's request requires it. Before creating new context blocks or tasks, check for existing ones to avoid duplicates.` + ownerSection
+}
 
 func main() {
 	// Load .env if present (ignored in production where env vars are set directly)
@@ -59,6 +81,7 @@ func main() {
 		GetProjectContextDef,
 		GetTasksDef,
 		ReadRepoFileDef,
+		UpdateProjectDef,
 		PostUpdateDef,
 		CreateContextBlockDef,
 		CreateTasksDef,
@@ -95,6 +118,7 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 		BaseURL:     req.BaseURL,
 		AuthToken:   req.AuthToken,
 		GitHubRepos: req.GitHubRepos,
+		IsOwner:     req.IsOwner,
 	}
 
 	// Build message history
@@ -122,8 +146,8 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 
 	flusher, ok := w.(http.Flusher)
 
-	log.Printf("running agent for project=%s", req.ProjectID)
-	_, err := agent.Run(ctx, toolCtx, systemPrompt, messages, &flushWriter{w: w, f: flusher, ok: ok})
+	log.Printf("running agent for project=%s is_owner=%v", req.ProjectID, req.IsOwner)
+	_, err := agent.Run(ctx, toolCtx, buildSystemPrompt(req.IsOwner), messages, &flushWriter{w: w, f: flusher, ok: ok})
 	if err != nil {
 		log.Printf("agent error project=%s: %v", req.ProjectID, err)
 		// If headers already sent, we can't change status code

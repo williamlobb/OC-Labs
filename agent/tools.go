@@ -18,9 +18,10 @@ type ToolDefinition struct {
 // on behalf of the authenticated user.
 type ToolContext struct {
 	ProjectID   string
-	BaseURL     string // e.g. "https://oclabs.space" or "http://localhost:3000"
-	AuthToken   string // user's session cookie or bearer token
+	BaseURL     string   // e.g. "https://oclabs.space" or "http://localhost:3000"
+	AuthToken   string   // user's session cookie or bearer token
 	GitHubRepos []string // repo URLs from the project
+	IsOwner     bool     // whether the current user is the project owner
 }
 
 func GenerateSchema[T any]() anthropic.ToolInputSchemaParam {

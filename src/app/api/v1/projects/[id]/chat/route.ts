@@ -66,6 +66,7 @@ export async function POST(
         auth_token: authToken,
         base_url: baseURL,
         github_repos: project?.github_repos ?? [],
+        is_owner: membership.role === 'owner',
       }),
     })
   } catch {
