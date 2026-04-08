@@ -5,6 +5,11 @@ import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils/cn'
 import type { ChatMessage } from '@/types'
 
+const FRIENDLY_TIMEOUT_MESSAGE =
+  'The project assistant timed out while processing that request. Try narrowing scope (for example: one repository, folder, or file).'
+const FRIENDLY_UNAVAILABLE_MESSAGE =
+  'The project assistant is temporarily unavailable. Please try again in a minute.'
+
 interface ProjectChatProps {
   projectId: string
   initialMessages: ChatMessage[]
@@ -93,7 +98,7 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
     } catch (err) {
       const fallback =
         err instanceof Error && err.message
-          ? err.message
+          ? toFriendlyChatError(err.message)
           : 'Something went wrong while reaching the project agent.'
       updateMessages((prev) =>
         prev.map((m) =>
@@ -206,14 +211,47 @@ async function extractErrorMessage(res: Response): Promise<string> {
     const contentType = res.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
       const data = (await res.json()) as { error?: string }
-      if (data?.error?.trim()) return data.error.trim()
+      if (data?.error?.trim()) return toFriendlyChatError(data.error, res.status)
     }
 
     const text = (await res.text()).replace(/\s+/g, ' ').trim()
-    if (text) return text.length > 240 ? `${text.slice(0, 240)}...` : text
+    if (text) return toFriendlyChatError(text, res.status)
   } catch {
     // Fall through to status fallback.
   }
 
+  if (res.status === 504 || res.status === 524) return FRIENDLY_TIMEOUT_MESSAGE
+  if (res.status >= 500) return FRIENDLY_UNAVAILABLE_MESSAGE
   return `Request failed (${res.status}).`
+}
+
+function toFriendlyChatError(raw: string, status?: number): string {
+  const text = raw.replace(/\s+/g, ' ').trim()
+  const lower = text.toLowerCase()
+
+  const timeoutSignals = [
+    'function_invocation_timeout',
+    'context deadline exceeded',
+    'deadline exceeded',
+    'timed out',
+    'timeout',
+    'gateway timeout',
+    'request timed out',
+    'exceeded max duration',
+  ]
+  if (timeoutSignals.some((signal) => lower.includes(signal))) return FRIENDLY_TIMEOUT_MESSAGE
+  if (status === 504 || status === 524) return FRIENDLY_TIMEOUT_MESSAGE
+
+  const unavailableSignals = [
+    'service unavailable',
+    'temporarily unavailable',
+    'bad gateway',
+    'upstream unavailable',
+    'upstream connect error',
+    'could not connect',
+  ]
+  if (unavailableSignals.some((signal) => lower.includes(signal))) return FRIENDLY_UNAVAILABLE_MESSAGE
+  if ((status ?? 0) >= 500) return FRIENDLY_UNAVAILABLE_MESSAGE
+
+  return text.length > 240 ? `${text.slice(0, 240)}...` : text
 }

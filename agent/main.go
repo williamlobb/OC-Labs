@@ -14,6 +14,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const agentTimeoutHint = "The assistant took too long while processing that request. Try narrowing scope (for example: one repository, folder, or file)."
+
 type ChatRequest struct {
 	ProjectID   string           `json:"project_id"`
 	Message     string           `json:"message"`
@@ -172,6 +174,7 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 		runCtx,
 		toolCtx,
 		buildSystemPrompt(req.IsOwner, req.GitHubRepos),
+		req.Message,
 		messages,
 		&flushWriter{w: w, f: flusher, ok: ok},
 	)
@@ -179,10 +182,10 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 		log.Printf("agent error project=%s: %v", req.ProjectID, err)
 		// If headers already sent, we can't change status code
 		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
-			fmt.Fprint(w, "\n\n[agent timeout: request took too long; try narrowing to specific files or folders.]")
+			fmt.Fprintf(w, "\n\n%s", agentTimeoutHint)
 			return
 		}
-		fmt.Fprintf(w, "\n\n[agent error: %s]", err.Error())
+		fmt.Fprint(w, "\n\nThe assistant hit an unexpected error while processing that request. Please try again.")
 	}
 }
 
