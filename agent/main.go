@@ -27,7 +27,7 @@ type HistoryMessage struct {
 	Content string `json:"content"`
 }
 
-func buildSystemPrompt(isOwner bool) string {
+func buildSystemPrompt(isOwner bool, linkedRepos []string) string {
 	ownerSection := ""
 	if isOwner {
 		ownerSection = `
@@ -47,6 +47,14 @@ You are talking to a contributor (not the owner). You cannot edit project detail
 `
 	}
 
+	repoSection := "\n## Linked repositories\n- No repositories are currently linked to this project.\n"
+	if len(linkedRepos) > 0 {
+		repoSection = "\n## Linked repositories\n"
+		for _, repo := range linkedRepos {
+			repoSection += fmt.Sprintf("- %s\n", repo)
+		}
+	}
+
 	return `You are a project agent for OC Labs. You help team members manage their project by reading context, writing updates, creating context blocks, decomposing work into tasks, and reading linked repositories.
 
 ## Personality
@@ -63,7 +71,12 @@ You are talking to a contributor (not the owner). You cannot edit project detail
 - When creating tasks, set realistic scope — prefer more small tasks over fewer large ones.
 
 ## Tools
-Only fetch project data when the user's request requires it. Before creating new context blocks or tasks, check for existing ones to avoid duplicates.` + ownerSection
+Only fetch project data when the user's request requires it. Before creating new context blocks or tasks, check for existing ones to avoid duplicates.
+
+For repository work:
+- Use list_repo_files to discover paths when the user asks to inspect a repo or you do not know exact filenames yet.
+- Use read_repo_file after you have a path (or when the user gives a direct path).
+- If the user asks you to remember/add/remove linked repositories for future chats, use update_project with github_repos.` + repoSection + ownerSection
 }
 
 func main() {
@@ -80,6 +93,7 @@ func main() {
 	tools := []ToolDefinition{
 		GetProjectContextDef,
 		GetTasksDef,
+		ListRepoFilesDef,
 		ReadRepoFileDef,
 		UpdateProjectDef,
 		PostUpdateDef,
@@ -146,8 +160,14 @@ func handleChat(ctx context.Context, agent *Agent, w http.ResponseWriter, r *htt
 
 	flusher, ok := w.(http.Flusher)
 
-	log.Printf("running agent for project=%s is_owner=%v", req.ProjectID, req.IsOwner)
-	_, err := agent.Run(ctx, toolCtx, buildSystemPrompt(req.IsOwner), messages, &flushWriter{w: w, f: flusher, ok: ok})
+	log.Printf("running agent for project=%s is_owner=%v linked_repos=%d", req.ProjectID, req.IsOwner, len(req.GitHubRepos))
+	_, err := agent.Run(
+		ctx,
+		toolCtx,
+		buildSystemPrompt(req.IsOwner, req.GitHubRepos),
+		messages,
+		&flushWriter{w: w, f: flusher, ok: ok},
+	)
 	if err != nil {
 		log.Printf("agent error project=%s: %v", req.ProjectID, err)
 		// If headers already sent, we can't change status code

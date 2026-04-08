@@ -55,6 +55,15 @@ The Discover page has a creation-only assistant at `POST /api/v1/discover/chat`.
 ### ADR-014: Contributor attribution via `author_name` column
 `updates`, `context_blocks`, and `tasks` tables track who created them with `author_id` + `author_name` (string). For agent-authored items, `author_name = 'Omnia Agent'`. UI shows subtle avatar chip (initials in colour circle for humans, sparkle icon for agent) inline with the creation date. Ref: `src/components/ui/ContributorChip.tsx`.
 
+### ADR-016: RBAC uses two layers with centralized permission helpers
+Authorization is split into platform and project scope: `users.platform_role` (`user` or `power_user`) and `project_members.role` (includes `tech_lead`). Route handlers now call `src/lib/auth/permissions.ts` (`canCreateProject`, `canEditProjectContent`, `canEditProjectSettings`, `canManageMembers`, `canDeleteProject`) instead of ad-hoc inline checks. Project creation is power-user only; content edits allow `owner`, `contributor`, and `tech_lead`.
+
+### ADR-017: Role invitations are email-token based and applied at auth time
+Role assignment is managed via `role_invitations` + invitation tokens: power users create invites from `/api/v1/admin/invitations`, recipients accept via `/api/v1/invitations/[token]/accept`, and auth callback (`/auth/callback`) applies pending invitations by email on login. Invite email delivery uses `src/lib/email/invite.ts` (Resend). RLS/migration hardening prevents self-escalation by locking `users.platform_role` changes to trusted server paths.
+
+### ADR-018: Agent repo context now includes linked repos and file discovery
+`GET /api/v1/projects/[id]/context` now returns `project.github_repos` (plus `notion_url`), so `get_project_context` gives the model the same linked repos shown in the UI. The Go agent now includes linked repos in its system prompt and has a `list_repo_files` tool (in addition to `read_repo_file`) for repository path discovery during planning/context work. Repo parsing accepts both full GitHub URLs and `owner/repo` shorthand.
+
 ## Stack
 
 Framework: Next.js 15 App Router

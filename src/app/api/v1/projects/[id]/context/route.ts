@@ -71,7 +71,7 @@ export async function GET(
   const [{ data: project }, { data: members }, { data: blocks }] = await Promise.all([
     supabase
       .from('projects')
-      .select('id, title, summary, status, skills_needed')
+      .select('id, title, summary, status, skills_needed, github_repos, notion_url')
       .eq('id', id)
       .single(),
     supabase
@@ -100,6 +100,8 @@ export async function GET(
       summary: project.summary,
       status: project.status,
       skills_needed: project.skills_needed,
+      github_repos: project.github_repos ?? [],
+      notion_url: project.notion_url ?? null,
     },
     team,
     blocks: (blocks ?? []).map(withAttachmentUrl),

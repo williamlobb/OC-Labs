@@ -10,7 +10,7 @@ import (
 // GetProjectContextDef reads the project's full context from the OC Labs API.
 var GetProjectContextDef = ToolDefinition{
 	Name:        "get_project_context",
-	Description: "Read the project's context (title, summary, status, team members, context blocks). Call this when the user asks about the project, its status, or its configuration — not on every message.",
+	Description: "Read the project's context (title, summary, status, linked GitHub repos, team members, context blocks). Call this when the user asks about the project, its status, or its configuration — not on every message.",
 	InputSchema: GenerateSchema[getProjectContextInput](),
 	Function:    getProjectContext,
 }
