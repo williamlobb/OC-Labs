@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Claude } from '@lobehub/icons'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { cn } from '@/lib/utils/cn'
 import type { ChatMessage } from '@/types'
 import { ProjectChat } from './ProjectChat'
 
@@ -11,6 +13,7 @@ interface ProjectChatPanelProps {
 
 export function ProjectChatPanel({ projectId }: ProjectChatPanelProps) {
   const [collapsed, setCollapsed] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -48,17 +51,21 @@ export function ProjectChatPanel({ projectId }: ProjectChatPanelProps) {
   return (
     <div
       ref={panelRef}
-      className="relative h-96 overflow-visible rounded-2xl border border-white/30 bg-white/70 shadow-2xl backdrop-blur-xl transition-all duration-300 ease-out dark:border-zinc-700/40 dark:bg-zinc-900/70"
+      className={cn(
+        'relative overflow-visible rounded-2xl border border-white/30 bg-white/70 shadow-2xl backdrop-blur-xl transition-all duration-300 ease-out dark:border-zinc-700/40 dark:bg-zinc-900/70',
+        isExpanded ? 'h-[48rem]' : 'h-96'
+      )}
     >
-      <div className="relative flex h-full min-h-0 flex-col overflow-visible pt-3">
-        <div className="absolute left-1/2 top-0 z-20 flex -translate-x-1/2 items-center">
+      <div className="relative flex h-full min-h-0 flex-col overflow-visible pt-10">
+        <div className="absolute left-1/2 top-2 z-20 flex -translate-x-1/2 items-center">
           <button
             type="button"
-            onClick={() => setMessages([])}
-            className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-            title="Clear chat history"
+            onClick={() => setIsExpanded((previous) => !previous)}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200/80 bg-white/80 text-zinc-500 shadow-sm backdrop-blur transition-colors hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-400 dark:hover:text-zinc-200"
+            aria-label={isExpanded ? 'Shrink chat panel' : 'Expand chat panel'}
+            title={isExpanded ? 'Shrink chat panel' : 'Expand chat panel'}
           >
-            New session
+            {isExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
           </button>
         </div>
 
