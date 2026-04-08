@@ -11,6 +11,7 @@ const PAGE_SIZE = 20
 
 interface ProjectWithOwner extends Project {
   owner_name: string
+  team_members_preview: { id: string; name: string; profile_photo_url?: string | null }[]
 }
 
 interface FilterableBoardProps {
@@ -101,6 +102,11 @@ export function FilterableBoard({
                 name: project.owner_name,
                 avatarColor: avatarColor(project.owner_id ?? ''),
               }}
+              teamMembers={project.team_members_preview.map((member) => ({
+                id: member.id,
+                name: member.name,
+                profilePhotoUrl: member.profile_photo_url ?? null,
+              }))}
               voteCount={project.vote_count}
               hasVoted={votedProjectIds.includes(project.id)}
               hasJoined={joinedProjectIds.includes(project.id)}

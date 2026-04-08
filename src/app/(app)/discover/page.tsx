@@ -30,11 +30,46 @@ export default async function DiscoverPage() {
   const joinedProjectIds = (memberships ?? []).map((m: { project_id: string }) => m.project_id)
 
   type ProjectRow = typeof projects extends (infer T)[] | null ? T : never
+  type ProjectMemberRow = {
+    project_id: string
+    user_id: string
+    users: { name?: string; profile_photo_url?: string | null }[] | { name?: string; profile_photo_url?: string | null } | null
+  }
+
+  const projectIds = (projects ?? []).map((p: ProjectRow) => p.id)
+  const teamMembersByProject = new Map<
+    string,
+    { id: string; name: string; profile_photo_url?: string | null }[]
+  >()
+
+  if (projectIds.length > 0) {
+    const { data: projectMembers } = await supabase
+      .from('project_members')
+      .select('project_id, user_id, users(name, profile_photo_url)')
+      .in('project_id', projectIds)
+      .in('role', ['owner', 'contributor', 'observer', 'tech_lead'])
+
+    for (const member of (projectMembers ?? []) as ProjectMemberRow[]) {
+      const userRecord = Array.isArray(member.users) ? member.users[0] : member.users
+      const next = teamMembersByProject.get(member.project_id) ?? []
+      next.push({
+        id: member.user_id,
+        name: userRecord?.name ?? 'Unknown',
+        profile_photo_url: userRecord?.profile_photo_url ?? null,
+      })
+      teamMembersByProject.set(member.project_id, next)
+    }
+  }
+
   const projectsWithOwner = (projects ?? []).map((p: ProjectRow) => {
     const { users, ...rest } = p as ProjectRow & { users: { name?: string } | null }
+    const teamMembersPreview = (teamMembersByProject.get(p.id) ?? []).filter(
+      (member) => member.id !== (p.owner_id ?? '')
+    )
     return {
       ...rest,
       owner_name: users?.name ?? 'Unknown',
+      team_members_preview: teamMembersPreview,
     }
   })
 

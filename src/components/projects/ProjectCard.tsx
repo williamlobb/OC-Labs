@@ -5,7 +5,17 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import type { ProjectCardProps } from '@/types'
 
-export function ProjectCard(props: ProjectCardProps) {
+type TeamPreviewMember = {
+  id: string
+  name: string
+  profilePhotoUrl?: string | null
+}
+
+type ProjectCardViewProps = ProjectCardProps & {
+  teamMembers?: TeamPreviewMember[]
+}
+
+export function ProjectCard(props: ProjectCardViewProps) {
   const {
     title,
     brand,
@@ -13,6 +23,7 @@ export function ProjectCard(props: ProjectCardProps) {
     desc,
     skills,
     owner,
+    teamMembers = [],
     voteCount,
     hasVoted,
     hasJoined,
@@ -21,64 +32,92 @@ export function ProjectCard(props: ProjectCardProps) {
     onJoin,
     onClick,
   } = props
+  const visibleTeamMembers = teamMembers.slice(0, 3)
+  const extraTeamCount = Math.max(0, teamMembers.length - visibleTeamMembers.length)
 
   return (
     <article
       role="article"
       onClick={onClick}
       className={cn(
-        'cursor-pointer rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900',
+        'flex h-[19rem] w-full cursor-pointer flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900',
         needsHelp && 'ring-2 ring-red-400'
       )}
     >
       {/* Header row */}
       <div className="flex items-center justify-between">
         <StatusBadge status={status} />
-        <span className="text-xs text-zinc-500">{brand}</span>
+        <span className="max-w-[45%] truncate text-right text-xs text-zinc-500">{brand}</span>
       </div>
 
       {/* Needs help banner */}
-      {needsHelp && (
-        <div
-          data-testid="needs-help-banner"
-          className="mt-2 rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
-        >
-          Needs help
-        </div>
-      )}
+      <div className="mt-2 h-7">
+        {needsHelp && (
+          <div
+            data-testid="needs-help-banner"
+            className="inline-flex rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+          >
+            Needs help
+          </div>
+        )}
+      </div>
 
       {/* Title */}
-      <h3 className="font-heading mt-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
+      <h3 className="font-heading mt-2 line-clamp-1 min-h-6 text-base font-bold text-zinc-900 dark:text-zinc-100">
         {title}
       </h3>
 
       {/* Description */}
-      <p className="mt-1 text-sm text-zinc-600 line-clamp-2 dark:text-zinc-400">
+      <p className="mt-1 min-h-10 text-sm text-zinc-600 line-clamp-2 dark:text-zinc-400">
         {desc}
       </p>
 
       {/* Skills */}
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {skills.map((skill) => (
-          <span
-            key={skill}
-            className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-          >
-            {skill}
-          </span>
-        ))}
+      <div className="mt-3 h-11 overflow-hidden">
+        <div className="flex flex-wrap content-start gap-1.5">
+          {skills.map((skill) => (
+            <span
+              key={skill}
+              className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {skill}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 dark:border-zinc-800">
+      <div className="mt-auto border-t border-zinc-100 pt-3 dark:border-zinc-800">
         {/* Owner */}
-        <div className="flex items-center">
-          <Avatar userId={owner.id} name={owner.name} size="sm" />
-          <span className="ml-2 text-sm text-zinc-600">{owner.name}</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center">
+            <Avatar userId={owner.id} name={owner.name} size="sm" />
+            <span className="ml-2 truncate text-sm text-zinc-600">{owner.name}</span>
+          </div>
+          {visibleTeamMembers.length > 0 && (
+            <div className="flex items-center">
+              {visibleTeamMembers.map((member, index) => (
+                <Avatar
+                  key={member.id}
+                  userId={member.id}
+                  name={member.name}
+                  photoUrl={member.profilePhotoUrl ?? null}
+                  size="sm"
+                  className={cn(
+                    'h-5 w-5 text-[10px] ring-2 ring-white dark:ring-zinc-900',
+                    index > 0 && '-ml-1.5'
+                  )}
+                />
+              ))}
+              {extraTeamCount > 0 && (
+                <span className="ml-1 text-xs text-zinc-500">+{extraTeamCount}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="mt-3 flex items-center justify-between gap-2">
           <button
             aria-label="Vote"
             onClick={(e) => { e.stopPropagation(); onVote() }}
