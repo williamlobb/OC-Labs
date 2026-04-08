@@ -43,6 +43,15 @@ When a new OC Labs project is created, `createEpic()` fires asynchronously (neve
 ### ADR-011: Hand raises are owner-approved before joining the team
 `project_members.role='interested'` is treated as a pending join request, not an approved team member. Project owners have a dedicated `/projects/[id]/hand-raises` review tab to approve requests; approval updates role from `interested` to `contributor`. Overview Team lists only approved roles (`owner`, `contributor`, `observer`), so pending requests do not appear as joined members.
 
+### ADR-012: Chat history is session-only, stored in React state
+Chat messages between user and agent live in component state only (ProjectChatPanel.tsx). No persistence to `project_chat_messages` table — that table is kept for future audit but reads/writes are disabled. A "New session" button clears messages. This eliminates the consecutive-user-message normalization bug that arose from stale history, reduces DB I/O, and keeps sessions truly ephemeral. Durable record of work comes from context blocks, updates, and tasks — not chat turns.
+
+### ADR-013: Agent eagerness gated by tool description
+The Go agent's `get_project_context` tool has a reactive description (not imperative "always call first"). System prompt says "fetch only when user's request requires it." This prevents verbose context dumps on every greeting while preserving proactive fetching when needed (e.g., "what's the status?"). See `agent/tools_project.go:13` and `agent/main.go:45`.
+
+### ADR-014: Contributor attribution via `author_name` column
+`updates`, `context_blocks`, and `tasks` tables track who created them with `author_id` + `author_name` (string). For agent-authored items, `author_name = 'Omnia Agent'`. UI shows subtle avatar chip (initials in colour circle for humans, sparkle icon for agent) inline with the creation date. Ref: `src/components/ui/ContributorChip.tsx`.
+
 ## Stack
 
 Framework: Next.js 15 App Router
