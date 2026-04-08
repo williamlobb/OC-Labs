@@ -37,8 +37,8 @@ yarn-error.log*
 # vercel
 .vercel
 
-# local pipeline activity log (keep local, do not commit)
-thoughts/shared/logs/events.jsonl
+# local pipeline activity logs (keep local, do not commit)
+thoughts/shared/logs/
 
 # typescript
 *.tsbuildinfo

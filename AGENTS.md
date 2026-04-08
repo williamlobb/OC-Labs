@@ -8,7 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Internal project discovery and collaboration board for the Omnia Collective — a group of related agencies. Members log in via SSO, browse and vote on internal projects, raise their hand to join, and post milestone updates.
 
-**Production URL:** https://labs.theoc.ai  
+**Production URL:** https://oclabs.space  
 **Stack:** Next.js 16.2.2 · React 19 · TypeScript 5 · Tailwind CSS v4 · Supabase (Postgres + Auth) · Vercel
 
 ---
