@@ -109,16 +109,13 @@ export async function canManageMembers(
 
 /**
  * Can user review hand raises (approve/deny)?
- * True if: power_user OR project owner OR project member with role tech_lead
+ * True if: project owner OR project member with role tech_lead
  */
 export async function canReviewHandRaises(
   supabase: SupabaseClient,
   userId: string,
   projectId: string
 ): Promise<boolean> {
-  const role = await getPlatformRole(supabase, userId)
-  if (isPowerUser(role)) return true
-
   const { data: project } = await supabase
     .from('projects')
     .select('owner_id')

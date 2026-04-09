@@ -28,6 +28,8 @@ export function ProjectCard(props: ProjectCardViewProps) {
     hasVoted,
     hasJoined,
     hasRaisedHand,
+    joinPending = false,
+    joinError = null,
     needsHelp,
     onVote,
     onJoin,
@@ -41,14 +43,16 @@ export function ProjectCard(props: ProjectCardViewProps) {
   )
   const visibleTeamMembers = uniqueTeamMembers.slice(0, 6)
   const extraTeamCount = Math.max(0, uniqueTeamMembers.length - visibleTeamMembers.length)
-  const joinButtonLabel = hasRaisedHand
-    ? 'Request sent'
-    : hasJoined
-      ? 'On team'
-      : needsHelp
-        ? 'We need you'
-        : 'Request to join'
-  const isJoinDisabled = hasJoined || hasRaisedHand
+  const joinButtonLabel = joinPending
+    ? 'Submitting...'
+    : hasRaisedHand
+      ? 'Request sent'
+      : hasJoined
+        ? 'On team'
+        : needsHelp
+          ? 'We need you'
+          : 'Request to join'
+  const isJoinDisabled = hasJoined || hasRaisedHand || joinPending
 
   return (
     <article
@@ -159,6 +163,9 @@ export function ProjectCard(props: ProjectCardViewProps) {
               {joinButtonLabel}
             </button>
           </div>
+          {joinError && (
+            <p className="mt-2 text-xs text-red-600 dark:text-red-400">{joinError}</p>
+          )}
         </div>
       </div>
     </article>

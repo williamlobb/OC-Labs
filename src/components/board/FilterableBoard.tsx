@@ -32,6 +32,10 @@ export function FilterableBoard({
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | null>(null)
   const [page, setPage] = useState(1)
+  const [localRequestedByProject, setLocalRequestedByProject] = useState<Record<string, true>>({})
+  const [localJoinedByProject, setLocalJoinedByProject] = useState<Record<string, true>>({})
+  const [joinPendingByProject, setJoinPendingByProject] = useState<Record<string, boolean>>({})
+  const [joinErrorByProject, setJoinErrorByProject] = useState<Record<string, string>>({})
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Debounce search input 300ms
@@ -54,6 +58,13 @@ export function FilterableBoard({
     setStatusFilter(status)
     setPage(1)
   }, [])
+
+  useEffect(() => {
+    setLocalRequestedByProject({})
+    setLocalJoinedByProject({})
+    setJoinPendingByProject({})
+    setJoinErrorByProject({})
+  }, [requestedProjectIds, joinedProjectIds])
 
   const filtered = useMemo(() => {
     let result = projects
@@ -111,19 +122,69 @@ export function FilterableBoard({
               }))}
               voteCount={project.vote_count}
               hasVoted={votedProjectIds.includes(project.id)}
-              hasJoined={joinedProjectIds.includes(project.id)}
-              hasRaisedHand={requestedProjectIds.includes(project.id)}
+              hasJoined={joinedProjectIds.includes(project.id) || !!localJoinedByProject[project.id]}
+              hasRaisedHand={requestedProjectIds.includes(project.id) || !!localRequestedByProject[project.id]}
+              joinPending={!!joinPendingByProject[project.id]}
+              joinError={joinErrorByProject[project.id] ?? null}
               needsHelp={project.needs_help}
               onVote={async () => {
                 await fetch(`/api/v1/projects/${project.id}/vote`, { method: 'POST' })
                 router.refresh()
               }}
               onJoin={async () => {
-                if (requestedProjectIds.includes(project.id) || joinedProjectIds.includes(project.id)) {
+                if (
+                  joinPendingByProject[project.id] ||
+                  requestedProjectIds.includes(project.id) ||
+                  joinedProjectIds.includes(project.id) ||
+                  localRequestedByProject[project.id] ||
+                  localJoinedByProject[project.id]
+                ) {
                   return
                 }
-                await fetch(`/api/v1/projects/${project.id}/raise-hand`, { method: 'POST' })
-                router.refresh()
+
+                setJoinPendingByProject((prev) => ({ ...prev, [project.id]: true }))
+                setJoinErrorByProject((prev) => {
+                  const next = { ...prev }
+                  delete next[project.id]
+                  return next
+                })
+
+                try {
+                  const res = await fetch(`/api/v1/projects/${project.id}/raise-hand`, { method: 'POST' })
+                  const data = (await res.json().catch(() => null)) as
+                    | { membershipRole?: string | null; alreadyRequested?: boolean; alreadyMember?: boolean; error?: string }
+                    | null
+
+                  if (!res.ok) {
+                    setJoinErrorByProject((prev) => ({
+                      ...prev,
+                      [project.id]: data?.error ?? 'Unable to submit your request right now.',
+                    }))
+                    return
+                  }
+
+                  if (data?.membershipRole === 'interested' || data?.alreadyRequested) {
+                    setLocalRequestedByProject((prev) => ({ ...prev, [project.id]: true }))
+                  }
+
+                  if (
+                    data?.alreadyMember ||
+                    (data?.membershipRole !== undefined &&
+                      data?.membershipRole !== null &&
+                      data.membershipRole !== 'interested')
+                  ) {
+                    setLocalJoinedByProject((prev) => ({ ...prev, [project.id]: true }))
+                  }
+
+                  router.refresh()
+                } catch {
+                  setJoinErrorByProject((prev) => ({
+                    ...prev,
+                    [project.id]: 'Network error while sending your request.',
+                  }))
+                } finally {
+                  setJoinPendingByProject((prev) => ({ ...prev, [project.id]: false }))
+                }
               }}
               onClick={() => router.push(`/projects/${project.id}`)}
             />

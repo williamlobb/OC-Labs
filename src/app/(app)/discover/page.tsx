@@ -32,20 +32,24 @@ export default async function DiscoverPage() {
       .eq('user_id', user?.id ?? ''),
   ])
 
-  const votedProjectIds = (votes ?? []).map((v: { project_id: string }) => v.project_id)
-  const requestedProjectIds = (memberships ?? [])
-    .filter((m: { project_id: string; role: MemberRole }) => m.role === 'interested')
-    .map((m: { project_id: string; role: MemberRole }) => m.project_id)
-  const joinedProjectIds = (memberships ?? [])
-    .filter((m: { project_id: string; role: MemberRole }) => m.role !== 'interested')
-    .map((m: { project_id: string; role: MemberRole }) => m.project_id)
-
   type ProjectRow = typeof projects extends (infer T)[] | null ? T : never
   type ProjectMemberRow = {
     project_id: string
     user_id: string
     users: { name?: string; profile_photo_url?: string | null }[] | { name?: string; profile_photo_url?: string | null } | null
   }
+
+  const votedProjectIds = (votes ?? []).map((v: { project_id: string }) => v.project_id)
+  const requestedProjectIds = (memberships ?? [])
+    .filter((m: { project_id: string; role: MemberRole }) => m.role === 'interested')
+    .map((m: { project_id: string; role: MemberRole }) => m.project_id)
+  const joinedProjectIdsFromMembership = (memberships ?? [])
+    .filter((m: { project_id: string; role: MemberRole }) => m.role !== 'interested')
+    .map((m: { project_id: string; role: MemberRole }) => m.project_id)
+  const ownedProjectIds = (projects ?? [])
+    .filter((p: ProjectRow) => p.owner_id === user?.id)
+    .map((p: ProjectRow) => p.id)
+  const joinedProjectIds = Array.from(new Set([...joinedProjectIdsFromMembership, ...ownedProjectIds]))
 
   const projectIds = (projects ?? []).map((p: ProjectRow) => p.id)
   const teamMembersByProject = new Map<
