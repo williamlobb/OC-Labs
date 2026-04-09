@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEpic } from '@/lib/jira/client'
+import { createEpic, createIssue } from '@/lib/jira/client'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -84,5 +84,79 @@ describe('createEpic', () => {
       issuetype: { name: 'Epic' },
       summary: 'Q3 Workstream',
     })
+  })
+})
+
+describe('createIssue', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    process.env.JIRA_BASE_URL = 'https://jira.example.com'
+    process.env.JIRA_EMAIL = 'jira@example.com'
+    process.env.JIRA_API_TOKEN = 'token'
+  })
+
+  it('includes parent payload when epicKey is provided', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      jsonResponse({ key: 'OC-12' }, 201)
+    )
+
+    await expect(createIssue({
+      summary: 'Roadmap: Draft launch notes',
+      projectKey: 'OC',
+      issueType: 'Task',
+      epicKey: 'OC-EPIC-1',
+    })).resolves.toMatchObject({
+      key: 'OC-12',
+      url: 'https://jira.example.com/browse/OC-12',
+    })
+
+    const fields = getPostedFields(fetchMock.mock.calls)
+    expect(fields).toMatchObject({
+      project: { key: 'OC' },
+      issuetype: { name: 'Task' },
+      summary: 'Roadmap: Draft launch notes',
+      parent: { key: 'OC-EPIC-1' },
+    })
+  })
+
+  it('classifies parent-link conflict errors with deterministic shape', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      jsonResponse(
+        { errors: { parent: 'Issue type Task is not allowed under the selected Epic hierarchy.' } },
+        400
+      )
+    )
+
+    await expect(createIssue({
+      summary: 'Roadmap: Draft launch notes',
+      projectKey: 'OC',
+      issueType: 'Task',
+      epicKey: 'OC-EPIC-1',
+    })).rejects.toMatchObject({
+      name: 'JiraRequestError',
+      status: 400,
+      jiraErrorCode: 'PARENT_LINK_CONFLICT',
+      details: expect.stringMatching(/parent/i),
+    })
+  })
+
+  it('does not retry without parent when parent-link conflict occurs', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      jsonResponse(
+        { errors: { parent: 'Issue type Task is not allowed under the selected Epic hierarchy.' } },
+        400
+      )
+    )
+
+    await expect(createIssue({
+      summary: 'Roadmap: Draft launch notes',
+      projectKey: 'OC',
+      issueType: 'Task',
+      epicKey: 'OC-EPIC-1',
+    })).rejects.toBeInstanceOf(Error)
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const fields = getPostedFields(fetchMock.mock.calls)
+    expect(fields).toHaveProperty('parent')
   })
 })

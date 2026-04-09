@@ -192,3 +192,41 @@ describe('TaskBoard Jira sync flow', () => {
     expect(screen.queryByText(/jira sync completed/i)).not.toBeInTheDocument()
   })
 })
+
+describe('TaskBoard task detail shortcuts', () => {
+  const teamMembers = [{ user_id: 'user-1', name: 'Owner' }]
+
+  it('opens task modal in view mode from Open details', async () => {
+    const user = userEvent.setup()
+    render(
+      <TaskBoard
+        projectId="proj-1"
+        initialTasks={[makeTask({ id: 'task-1' })]}
+        teamMembers={teamMembers}
+        canEdit
+        viewerRole="owner"
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Open details' }))
+
+    expect(await screen.findByRole('button', { name: 'Close' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+  })
+
+  it('opens task modal directly in edit mode from Edit shortcut', async () => {
+    const user = userEvent.setup()
+    render(
+      <TaskBoard
+        projectId="proj-1"
+        initialTasks={[makeTask({ id: 'task-1' })]}
+        teamMembers={teamMembers}
+        canEdit
+        viewerRole="owner"
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /^Edit$/ }))
+    expect(await screen.findByRole('button', { name: /save changes/i })).toBeInTheDocument()
+  })
+})

@@ -178,6 +178,63 @@ describe('POST /api/v1/projects/[id]/jira/sync', () => {
     expect(mockCreateIssue).toHaveBeenCalledTimes(1)
   })
 
+  it('fails fast when JIRA_ISSUE_TYPE is incompatible with Epic parent linkage', async () => {
+    process.env.JIRA_ISSUE_TYPE = 'Epic'
+    setupSupabaseData(
+      { id: 'proj-1', title: 'Roadmap', jira_epic_key: 'OC-EPIC-1' },
+      [
+        {
+          id: 'task-1',
+          title: 'Draft launch notes',
+          body: null,
+          jira_issue_key: null,
+          assignee_id: 'user-1',
+        },
+      ]
+    )
+
+    const res = await POST(makeRequest(), { params })
+    const payload = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(payload.error).toMatch(/must be task/i)
+    expect(payload.technicalDetails).toMatch(/JIRA_ISSUE_TYPE=Epic/i)
+    expect(mockCreateEpic).not.toHaveBeenCalled()
+    expect(mockCreateIssue).not.toHaveBeenCalled()
+  })
+
+  it('returns friendly copy for Jira parent-link conflicts', async () => {
+    setupSupabaseData(
+      { id: 'proj-1', title: 'Roadmap', jira_epic_key: 'OC-EPIC-1' },
+      [
+        {
+          id: 'task-1',
+          title: 'Draft launch notes',
+          body: null,
+          jira_issue_key: null,
+          assignee_id: 'user-1',
+        },
+      ]
+    )
+    mockCreateIssue.mockRejectedValueOnce(
+      Object.assign(new Error('Jira request failed (400): parent issue type conflict'), {
+        jiraErrorCode: 'PARENT_LINK_CONFLICT',
+      })
+    )
+
+    const res = await POST(makeRequest(), { params })
+    const payload = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(payload.failed).toBe(1)
+    expect(payload.errors).toEqual([
+      expect.stringMatching(/set JIRA_ISSUE_TYPE to Task/i),
+    ])
+    expect(payload.technicalErrors).toEqual([
+      expect.stringMatching(/parent issue type conflict/i),
+    ])
+  })
+
   it('preserves auth guards for unauthenticated and forbidden users', async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null } })
 

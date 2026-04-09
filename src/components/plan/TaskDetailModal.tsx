@@ -23,6 +23,7 @@ interface TaskDetailModalProps {
   allTasks: Task[]
   teamMembers: TeamMember[]
   canEdit: boolean
+  startInEditMode?: boolean
   onClose: () => void
   onSave: (taskId: string, updates: TaskUpdates) => Promise<void>
   onDelete: (taskId: string) => Promise<void>
@@ -33,11 +34,12 @@ export function TaskDetailModal({
   allTasks,
   teamMembers,
   canEdit,
+  startInEditMode = false,
   onClose,
   onSave,
   onDelete,
 }: TaskDetailModalProps) {
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startInEditMode && canEdit)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)

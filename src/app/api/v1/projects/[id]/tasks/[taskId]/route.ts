@@ -5,6 +5,20 @@ import { canEditProjectContent } from '@/lib/auth/permissions'
 const VALID_STATUSES = ['todo', 'in_progress', 'done', 'blocked'] as const
 type TaskStatus = (typeof VALID_STATUSES)[number]
 
+interface DatabaseErrorLike {
+  code?: string | null
+  message?: string | null
+  details?: string | null
+}
+
+function isPermissionDeniedError(error: DatabaseErrorLike | null | undefined): boolean {
+  if (!error) return false
+  if (error.code === '42501') return true
+
+  const details = `${error.message ?? ''} ${error.details ?? ''}`.toLowerCase()
+  return details.includes('permission denied') || details.includes('row-level security')
+}
+
 function parseDependencyIds(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null
   if (!value.every((item) => typeof item === 'string')) return null
@@ -165,7 +179,12 @@ export async function PATCH(
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (isPermissionDeniedError(error)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json(task)
 }
@@ -191,7 +210,12 @@ export async function DELETE(
     .eq('id', taskId)
     .eq('project_id', id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    if (isPermissionDeniedError(error)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   return new NextResponse(null, { status: 204 })
 }

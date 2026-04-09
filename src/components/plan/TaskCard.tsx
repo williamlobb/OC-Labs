@@ -27,7 +27,7 @@ interface TaskCardProps {
   onAssign: (taskId: string, assigneeId: string | null) => void
   onAgentToggle: (taskId: string, value: boolean) => void
   onDependenciesChange: (taskId: string, dependsOnIds: string[]) => void
-  onInspect: (taskId: string) => void
+  onInspect: (taskId: string, mode?: 'view' | 'edit') => void
 }
 
 export function TaskCard({
@@ -175,6 +175,25 @@ export function TaskCard({
           />
         )
       })()}
+
+      <div className="mt-2 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onInspect(task.id)}
+          className="rounded border border-zinc-200 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          Open details
+        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => onInspect(task.id, 'edit')}
+            className="rounded border border-zinc-200 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Edit
+          </button>
+        )}
+      </div>
 
       {/* Footer: status + assignee */}
       <div className="mt-2 flex items-center justify-between gap-2">

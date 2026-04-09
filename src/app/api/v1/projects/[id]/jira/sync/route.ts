@@ -22,6 +22,7 @@ interface FriendlyJiraMessage {
 }
 
 const UNASSIGNED_TASKS_CONFIRMATION_CODE = 'UNASSIGNED_TASKS_CONFIRMATION_REQUIRED'
+const SUPPORTED_EPIC_CHILD_ISSUE_TYPE = 'task'
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
@@ -36,9 +37,35 @@ function hasRequiredJiraConfig(): string | null {
   return `Missing Jira env vars: ${missingVars.join(', ')}`
 }
 
-function toFriendlyJiraMessage(rawMessage: string): FriendlyJiraMessage {
+function isParentLinkConflictError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  return (error as { jiraErrorCode?: string }).jiraErrorCode === 'PARENT_LINK_CONFLICT'
+}
+
+function toFriendlyJiraMessage(
+  rawMessage: string,
+  options?: { parentLinkConflict?: boolean }
+): FriendlyJiraMessage {
   const message = rawMessage.trim()
   const lower = message.toLowerCase()
+
+  if (
+    options?.parentLinkConflict
+    || (
+      lower.includes('parent')
+      && (
+        lower.includes('issue type')
+        || lower.includes('hierarchy')
+        || lower.includes('child issue')
+        || lower.includes('not a valid parent')
+      )
+    )
+  ) {
+    return {
+      userMessage: 'Jira rejected the Epic link for this task type. Set JIRA_ISSUE_TYPE to Task and retry sync.',
+      technicalDetails: message,
+    }
+  }
 
   if (
     lower.includes('customfield_10011')
@@ -87,6 +114,18 @@ function toFriendlyJiraMessage(rawMessage: string): FriendlyJiraMessage {
   return {
     userMessage: 'Jira sync hit an unexpected issue. Please try again.',
     technicalDetails: message,
+  }
+}
+
+function getIssueTypeCompatibilityError(jiraIssueType: string): FriendlyJiraMessage | null {
+  if (jiraIssueType.trim().toLowerCase() === SUPPORTED_EPIC_CHILD_ISSUE_TYPE) {
+    return null
+  }
+
+  const technicalDetails = `JIRA_ISSUE_TYPE=${jiraIssueType} is incompatible with Epic parent linkage. Use Task.`
+  return {
+    userMessage: 'Jira issue type must be Task for Epic-linked sync. Update JIRA_ISSUE_TYPE and try again.',
+    technicalDetails,
   }
 }
 
@@ -197,6 +236,20 @@ export async function POST(
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (tasksError) return NextResponse.json({ error: tasksError.message }, { status: 500 })
 
+  const jiraProjectKey = process.env.JIRA_PROJECT_KEY!.trim()
+  const jiraIssueType = process.env.JIRA_ISSUE_TYPE?.trim() || 'Task'
+  const compatibilityError = getIssueTypeCompatibilityError(jiraIssueType)
+  if (compatibilityError) {
+    return NextResponse.json(
+      {
+        error: compatibilityError.userMessage,
+        message: compatibilityError.userMessage,
+        technicalDetails: compatibilityError.technicalDetails,
+      },
+      { status: 500 }
+    )
+  }
+
   const taskRows = (tasks ?? []) as TaskRow[]
   const unassignedUnsyncedTasks = taskRows.filter(
     (task) => !task.jira_issue_key?.trim() && !task.assignee_id
@@ -218,8 +271,6 @@ export async function POST(
     )
   }
 
-  const jiraProjectKey = process.env.JIRA_PROJECT_KEY!.trim()
-  const jiraIssueType = process.env.JIRA_ISSUE_TYPE?.trim() || 'Task'
   const { epicKey, error: epicError } = await ensureProjectEpicKey(
     project.id,
     project.title,
@@ -280,7 +331,9 @@ export async function POST(
       created += 1
     } catch (error) {
       failed += 1
-      const friendly = toFriendlyJiraMessage(getErrorMessage(error))
+      const friendly = toFriendlyJiraMessage(getErrorMessage(error), {
+        parentLinkConflict: isParentLinkConflictError(error),
+      })
       errors.push(`${task.title}: ${friendly.userMessage}`)
       if (friendly.technicalDetails) {
         technicalErrors.push(`${task.title}: ${friendly.technicalDetails}`)

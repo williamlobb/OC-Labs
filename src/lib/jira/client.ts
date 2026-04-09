@@ -25,15 +25,19 @@ interface JiraErrorPayload {
   errors?: Record<string, string>
 }
 
-class JiraRequestError extends Error {
+export type JiraErrorCode = 'PARENT_LINK_CONFLICT' | 'UNKNOWN'
+
+export class JiraRequestError extends Error {
   readonly status: number
   readonly details: string
+  readonly jiraErrorCode: JiraErrorCode
 
-  constructor(prefix: string, status: number, details: string) {
+  constructor(prefix: string, status: number, details: string, jiraErrorCode: JiraErrorCode = 'UNKNOWN') {
     super(`${prefix} (${status}): ${details}`)
     this.name = 'JiraRequestError'
     this.status = status
     this.details = details
+    this.jiraErrorCode = jiraErrorCode
   }
 }
 
@@ -68,22 +72,25 @@ function toAtlassianDocument(text: string): Record<string, unknown> {
   }
 }
 
-function parseJiraError(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') return null
+function parseJiraError(payload: unknown): { details: string | null; errorFields: string[] } {
+  if (!payload || typeof payload !== 'object') {
+    return { details: null, errorFields: [] }
+  }
 
   const jiraError = payload as JiraErrorPayload
   if (Array.isArray(jiraError.errorMessages) && jiraError.errorMessages.length > 0) {
-    return jiraError.errorMessages.join('; ')
+    return { details: jiraError.errorMessages.join('; '), errorFields: [] }
   }
 
   if (jiraError.errors && typeof jiraError.errors === 'object') {
+    const errorFields = Object.keys(jiraError.errors)
     const details = Object.entries(jiraError.errors)
       .map(([field, message]) => `${field}: ${message}`)
       .join('; ')
-    if (details) return details
+    if (details) return { details, errorFields }
   }
 
-  return null
+  return { details: null, errorFields: [] }
 }
 
 function isFieldConfigurationError(details: string, fieldId?: string): boolean {
@@ -100,6 +107,27 @@ function isFieldConfigurationError(details: string, fieldId?: string): boolean {
 
 function getAuthHeader(email: string, apiToken: string): string {
   return Buffer.from(`${email}:${apiToken}`).toString('base64')
+}
+
+function isParentLinkConflict(details: string, errorFields: string[]): boolean {
+  const lower = details.toLowerCase()
+  const fieldSet = new Set(errorFields.map((field) => field.toLowerCase()))
+
+  if (fieldSet.has('parent')) return true
+
+  return (
+    lower.includes('parent')
+    && (
+      lower.includes('issue type')
+      || lower.includes('hierarchy')
+      || lower.includes('epic')
+      || lower.includes('cannot be set')
+      || lower.includes('sub-task')
+      || lower.includes('subtask')
+      || lower.includes('not a valid parent')
+      || lower.includes('child issue')
+    )
+  )
 }
 
 async function postIssue(
@@ -121,13 +149,19 @@ async function postIssue(
 
   if (!response.ok) {
     let details = response.statusText || 'Request failed'
+    let errorFields: string[] = []
     try {
       const payload = await response.json()
-      details = parseJiraError(payload) ?? details
+      const parsed = parseJiraError(payload)
+      details = parsed.details ?? details
+      errorFields = parsed.errorFields
     } catch {
       // Keep fallback status text when payload is not JSON.
     }
-    throw new JiraRequestError(errorPrefix, response.status, details)
+    const jiraErrorCode = isParentLinkConflict(details, errorFields)
+      ? 'PARENT_LINK_CONFLICT'
+      : 'UNKNOWN'
+    throw new JiraRequestError(errorPrefix, response.status, details, jiraErrorCode)
   }
 
   const payload = (await response.json()) as { key?: string }

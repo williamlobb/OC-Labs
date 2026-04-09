@@ -13,6 +13,7 @@ export default async function IntegrationsPage() {
 
   const jiraBaseUrl = process.env.JIRA_BASE_URL?.trim().replace(/\/+$/, '') ?? null
   const jiraProjectKey = process.env.JIRA_PROJECT_KEY?.trim() ?? null
+  const jiraIssueType = process.env.JIRA_ISSUE_TYPE?.trim() ?? 'Task'
   const jiraConfigured = !!(jiraBaseUrl && process.env.JIRA_API_TOKEN && jiraProjectKey)
   const githubConfigured = !!process.env.GITHUB_TOKEN
   const githubOrg = process.env.GITHUB_ORG?.trim() ?? null
@@ -40,6 +41,7 @@ export default async function IntegrationsPage() {
         jiraConfigured={jiraConfigured}
         jiraBaseUrl={jiraBaseUrl}
         jiraProjectKey={jiraProjectKey}
+        jiraIssueType={jiraIssueType}
         jiraLastSync={(lastSyncRow as { jira_synced_at: string } | null)?.jira_synced_at ?? null}
         githubConfigured={githubConfigured}
         githubOrg={githubOrg}

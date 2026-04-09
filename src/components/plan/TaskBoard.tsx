@@ -46,6 +46,11 @@ interface JiraUnassignedConfirmation {
   unassignedTaskPreview: string[]
 }
 
+interface TaskModalState {
+  taskId: string
+  startInEditMode: boolean
+}
+
 const UNASSIGNED_TASKS_CONFIRMATION_CODE = 'UNASSIGNED_TASKS_CONFIRMATION_REQUIRED'
 
 function normalizeTask(task: Task): Task {
@@ -81,7 +86,7 @@ function getTechnicalDetails(payload: unknown): string[] {
 
 export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewerRole }: TaskBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(() => initialTasks.map(normalizeTask))
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [taskModalState, setTaskModalState] = useState<TaskModalState | null>(null)
   const [decomposing, setDecomposing] = useState(false)
   const [syncingToJira, setSyncingToJira] = useState(false)
   const [jiraSyncMessage, setJiraSyncMessage] = useState<JiraSyncFeedback | null>(null)
@@ -315,6 +320,13 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
     await runJiraSync(false)
   }
 
+  function handleInspectTask(taskId: string, mode: 'view' | 'edit' = 'view') {
+    setTaskModalState({
+      taskId,
+      startInEditMode: mode === 'edit',
+    })
+  }
+
   if (tasks.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-zinc-300 py-16 text-center dark:border-zinc-700">
@@ -473,7 +485,7 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
                     onAssign={handleAssign}
                     onAgentToggle={handleAgentToggle}
                     onDependenciesChange={handleDependenciesChange}
-                    onInspect={setSelectedTaskId}
+                    onInspect={handleInspectTask}
                   />
                 ))}
                 {displayedTasks.length === 0 && (
@@ -489,8 +501,8 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         })}
       </div>
 
-      {selectedTaskId && (() => {
-        const selectedTask = tasks.find((t) => t.id === selectedTaskId)
+      {taskModalState && (() => {
+        const selectedTask = tasks.find((t) => t.id === taskModalState.taskId)
         if (!selectedTask) return null
         return (
           <TaskDetailModal
@@ -498,7 +510,8 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
             allTasks={tasks}
             teamMembers={teamMembers}
             canEdit={canEdit}
-            onClose={() => setSelectedTaskId(null)}
+            startInEditMode={taskModalState.startInEditMode}
+            onClose={() => setTaskModalState(null)}
             onSave={handleEditTask}
             onDelete={handleDeleteTask}
           />
