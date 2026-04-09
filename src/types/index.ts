@@ -158,6 +158,7 @@ export interface ProjectCardProps {
   voteCount: number
   hasVoted: boolean
   hasJoined: boolean
+  hasRaisedHand: boolean
   needsHelp: boolean
   onVote: () => void
   onJoin: () => void

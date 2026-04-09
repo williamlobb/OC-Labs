@@ -9,6 +9,12 @@ export function canMemberRoleEditProjectContent(
   return role !== undefined && role !== null && CONTENT_ROLES.includes(role)
 }
 
+export function canMemberRoleReviewHandRaises(
+  role: MemberRole | null | undefined
+): boolean {
+  return role === 'owner' || role === 'tech_lead'
+}
+
 /**
  * Fetches the user's platform_role from the users table.
  * Returns 'user' as safe default if column is missing or query fails.
@@ -99,6 +105,36 @@ export async function canManageMembers(
     .single()
 
   return data?.owner_id === userId
+}
+
+/**
+ * Can user review hand raises (approve/deny)?
+ * True if: power_user OR project owner OR project member with role tech_lead
+ */
+export async function canReviewHandRaises(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string
+): Promise<boolean> {
+  const role = await getPlatformRole(supabase, userId)
+  if (isPowerUser(role)) return true
+
+  const { data: project } = await supabase
+    .from('projects')
+    .select('owner_id')
+    .eq('id', projectId)
+    .single()
+
+  if (project?.owner_id === userId) return true
+
+  const { data: membership } = await supabase
+    .from('project_members')
+    .select('role')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  return membership?.role === 'tech_lead'
 }
 
 /**

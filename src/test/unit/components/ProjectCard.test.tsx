@@ -15,6 +15,7 @@ const baseProps = (): ProjectCardProps => ({
   voteCount: 5,
   hasVoted: false,
   hasJoined: false,
+  hasRaisedHand: false,
   needsHelp: false,
   onVote: vi.fn(),
   onJoin: vi.fn(),
@@ -111,18 +112,23 @@ describe('vote button', () => {
 
 describe('join button', () => {
   it('shows "Request to join" when hasJoined is false', () => {
-    render(<ProjectCard {...baseProps()} hasJoined={false} />)
+    render(<ProjectCard {...baseProps()} hasJoined={false} hasRaisedHand={false} />)
     expect(screen.getByRole('button', { name: 'Request to join' })).toBeInTheDocument()
   })
 
-  it('shows "Joined" when hasJoined is true', () => {
+  it('shows "On team" when hasJoined is true', () => {
     render(<ProjectCard {...baseProps()} hasJoined={true} />)
-    expect(screen.getByRole('button', { name: 'Joined' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'On team' })).toBeInTheDocument()
   })
 
   it('shows "We need you" when project needs help', () => {
-    render(<ProjectCard {...baseProps()} hasJoined={false} needsHelp={true} />)
+    render(<ProjectCard {...baseProps()} hasJoined={false} hasRaisedHand={false} needsHelp={true} />)
     expect(screen.getByRole('button', { name: 'We need you' })).toBeInTheDocument()
+  })
+
+  it('shows "Request sent" when the user already raised their hand', () => {
+    render(<ProjectCard {...baseProps()} hasRaisedHand={true} />)
+    expect(screen.getByRole('button', { name: 'Request sent' })).toBeInTheDocument()
   })
 
   it('calls onJoin when clicked', async () => {

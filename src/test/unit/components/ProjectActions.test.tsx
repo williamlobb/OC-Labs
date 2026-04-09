@@ -100,9 +100,10 @@ describe('ProjectActions — join button', () => {
     expect(screen.getByRole('button', { name: /raise hand/i })).toBeInTheDocument()
   })
 
-  it('shows Hand Raised when already raised', () => {
+  it('shows Request sent and Withdraw when already raised', () => {
     setup({ initialHasRaisedHand: true, initialMembershipRole: 'interested' })
-    expect(screen.getByRole('button', { name: /hand raised/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /request sent/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /withdraw/i })).toBeInTheDocument()
   })
 
   it('hides raise hand when already an approved member', () => {
