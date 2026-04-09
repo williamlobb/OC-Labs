@@ -9,10 +9,9 @@ import { NextRequest } from 'next/server'
 
 // ---- mocks ----------------------------------------------------------------
 
-const { mockGetUser, mockFrom, mockCanEditProjectContent } = vi.hoisted(() => ({
+const { mockGetUser, mockFrom } = vi.hoisted(() => ({
   mockGetUser: vi.fn(),
   mockFrom: vi.fn(),
-  mockCanEditProjectContent: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -22,12 +21,8 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
-vi.mock('@/lib/auth/permissions', () => ({
-  canEditProjectContent: mockCanEditProjectContent,
-}))
-
 // ---- module under test ----------------------------------------------------
-import { PUT } from '@/app/api/v1/projects/[id]/context/[blockId]/route'
+import { DELETE, PUT } from '@/app/api/v1/projects/[id]/context/[blockId]/route'
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -42,6 +37,15 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
   )
 }
 
+function makeDeleteRequest(): NextRequest {
+  return new NextRequest(
+    'http://localhost/api/v1/projects/proj-1/context/block-1',
+    {
+      method: 'DELETE',
+    }
+  )
+}
+
 const params = Promise.resolve({ id: 'proj-1', blockId: 'block-1' })
 
 function makeQuery(result: unknown) {
@@ -49,6 +53,7 @@ function makeQuery(result: unknown) {
     select: vi.fn(),
     eq: vi.fn(),
     update: vi.fn(),
+    delete: vi.fn(),
     single: vi.fn(),
     maybeSingle: vi.fn(),
   } as Record<string, ReturnType<typeof vi.fn>>
@@ -65,11 +70,13 @@ describe('PUT /api/v1/projects/[id]/context/[blockId] — empty body guard', () 
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
-    mockCanEditProjectContent.mockResolvedValue(true)
   })
 
   it('returns 400 when no meaningful fields are provided', async () => {
-    mockFrom.mockReturnValue(makeQuery({ data: { id: 'block-1', version: 1 }, error: null }))
+    mockFrom.mockReturnValue(makeQuery({
+      data: { id: 'block-1', author_id: 'user-1', version: 1 },
+      error: null,
+    }))
 
     const res = await PUT(makeRequest({}), { params })
     expect(res.status).toBe(400)
@@ -77,7 +84,10 @@ describe('PUT /api/v1/projects/[id]/context/[blockId] — empty body guard', () 
   })
 
   it('returns 400 when only whitespace is provided for title and body', async () => {
-    mockFrom.mockReturnValue(makeQuery({ data: { id: 'block-1', version: 1 }, error: null }))
+    mockFrom.mockReturnValue(makeQuery({
+      data: { id: 'block-1', author_id: 'user-1', version: 1 },
+      error: null,
+    }))
 
     const res = await PUT(makeRequest({ title: '   ', body: '   ' }), { params })
     expect(res.status).toBe(400)
@@ -87,11 +97,56 @@ describe('PUT /api/v1/projects/[id]/context/[blockId] — empty body guard', () 
     let call = 0
     mockFrom.mockImplementation(() => {
       call++
-      if (call === 1) return makeQuery({ data: { version: 1 }, error: null })       // fetch existing
+      if (call === 1) return makeQuery({ data: { author_id: 'user-1', version: 1 }, error: null }) // fetch existing
       return makeQuery({ data: { id: 'block-1', title: 'New title', version: 2 }, error: null }) // update
     })
 
     const res = await PUT(makeRequest({ title: 'New title' }), { params })
     expect(res.status).toBe(200)
+  })
+
+  it('returns 403 when user does not own the block', async () => {
+    mockFrom.mockReturnValue(makeQuery({
+      data: { id: 'block-1', author_id: 'other-user', version: 1 },
+      error: null,
+    }))
+
+    const res = await PUT(makeRequest({ title: 'New title' }), { params })
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: 'Forbidden' })
+  })
+})
+
+describe('DELETE /api/v1/projects/[id]/context/[blockId] — ownership guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+  })
+
+  it('returns 403 when user does not own the block', async () => {
+    mockFrom.mockReturnValue(makeQuery({
+      data: { id: 'block-1', author_id: 'other-user', attachment_path: null },
+      error: null,
+    }))
+
+    const res = await DELETE(makeDeleteRequest(), { params })
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 204 when the author deletes their own block', async () => {
+    let call = 0
+    mockFrom.mockImplementation(() => {
+      call++
+      if (call === 1) {
+        return makeQuery({
+          data: { id: 'block-1', author_id: 'user-1', attachment_path: null },
+          error: null,
+        })
+      }
+      return makeQuery({ data: null, error: null })
+    })
+
+    const res = await DELETE(makeDeleteRequest(), { params })
+    expect(res.status).toBe(204)
   })
 })

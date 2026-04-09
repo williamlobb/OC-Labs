@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { canEditProjectContent } from '@/lib/auth/permissions'
 import {
   buildContextAttachmentPath,
   buildContextAttachmentUrl,
@@ -68,11 +67,6 @@ export async function PUT(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const allowed = await canEditProjectContent(supabase, user.id, id)
-  if (!allowed) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
   const payload = await parsePayload(req)
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
@@ -96,12 +90,15 @@ export async function PUT(
 
   const { data: existing } = await supabase
     .from('context_blocks')
-    .select('version, attachment_path')
+    .select('author_id, version, attachment_path')
     .eq('id', blockId)
     .eq('project_id', id)
     .single()
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (existing.author_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   let nextAttachmentPath: string | null = null
 
@@ -162,19 +159,17 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const allowed = await canEditProjectContent(supabase, user.id, id)
-  if (!allowed) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
   const { data: block } = await supabase
     .from('context_blocks')
-    .select('id, attachment_path')
+    .select('id, author_id, attachment_path')
     .eq('id', blockId)
     .eq('project_id', id)
     .single()
 
   if (!block) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (block.author_id !== user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   if (block.attachment_path) {
     const { error: removeError } = await supabase.storage

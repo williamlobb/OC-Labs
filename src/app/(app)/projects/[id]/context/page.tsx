@@ -35,7 +35,7 @@ export default async function ContextPage({ params }: PageProps) {
   ])
 
   const viewerRole = (membership?.role ?? null) as MemberRole | null
-  const canEdit = isPowerUser(platformRole) || canMemberRoleEditProjectContent(viewerRole)
+  const canCreate = isPowerUser(platformRole) || canMemberRoleEditProjectContent(viewerRole)
   const initialBlocks = ((blocks ?? []) as ContextBlock[]).map((block) => ({
     ...block,
     attachment_url: buildContextAttachmentUrl(block.attachment_path),
@@ -45,7 +45,8 @@ export default async function ContextPage({ params }: PageProps) {
     <ContextWorkbench
       projectId={id}
       initialBlocks={initialBlocks}
-      canEdit={canEdit}
+      currentUserId={user?.id ?? null}
+      canCreate={canCreate}
     />
   )
 }

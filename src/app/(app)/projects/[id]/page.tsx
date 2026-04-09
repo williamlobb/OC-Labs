@@ -96,7 +96,11 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
               autoFocus={shouldAutoFocusCompose}
             />
           )}
-          <UpdatesFeed updates={(updates ?? []) as ProjectUpdate[]} />
+          <UpdatesFeed
+            projectId={id}
+            currentUserId={user?.id ?? null}
+            updates={(updates ?? []) as ProjectUpdate[]}
+          />
         </section>
       </div>
 
