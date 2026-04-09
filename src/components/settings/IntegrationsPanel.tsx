@@ -1,57 +1,9 @@
 'use client'
 
+import Image from 'next/image'
 import { cn } from '@/lib/utils/cn'
 
 // --- Logos ---
-
-function JiraLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="jira-a" x1="16.265" y1="16.399" x2="8.311" y2="24.353" gradientUnits="userSpaceOnUse">
-          <stop offset="0.176" stopColor="#0052CC" />
-          <stop offset="1" stopColor="#2684FF" />
-        </linearGradient>
-        <linearGradient id="jira-b" x1="15.694" y1="15.845" x2="23.717" y2="7.822" gradientUnits="userSpaceOnUse">
-          <stop offset="0.176" stopColor="#0052CC" />
-          <stop offset="1" stopColor="#2684FF" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M15.976 2.024C12.56 5.44 12.56 10.979 15.976 14.395l6.029 6.03 6.03-6.03C31.451 10.98 31.451 5.44 28.035 2.024L15.976 2.024z"
-        fill="url(#jira-b)"
-      />
-      <path
-        d="M15.976 17.605C12.56 14.189 7.021 14.189 3.605 17.605l-0 0 6.03 6.03c3.415 3.415 8.955 3.415 12.37 0l6.03-6.03c-3.415-3.415-8.644-3.415-12.059 0z"
-        fill="url(#jira-a)"
-      />
-    </svg>
-  )
-}
-
-function GitHubLogo({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M16 2C8.268 2 2 8.268 2 16c0 6.197 4.02 11.454 9.594 13.306.7.13.956-.304.956-.674 0-.332-.012-1.213-.019-2.38-3.894.847-4.716-1.876-4.716-1.876-.636-1.617-1.554-2.047-1.554-2.047-1.271-.869.096-.852.096-.852 1.404.099 2.143 1.441 2.143 1.441 1.25 2.14 3.278 1.522 4.077 1.163.127-.904.489-1.522.888-1.871-3.109-.354-6.378-1.554-6.378-6.918 0-1.527.547-2.777 1.441-3.757-.145-.353-.624-1.777.136-3.705 0 0 1.174-.376 3.848 1.434A13.41 13.41 0 0 1 16 9.626c1.19.005 2.387.16 3.507.47 2.67-1.81 3.843-1.434 3.843-1.434.762 1.928.283 3.352.138 3.705.896.98 1.439 2.23 1.439 3.757 0 5.376-3.274 6.56-6.394 6.908.503.433.951 1.288.951 2.596 0 1.875-.017 3.383-.017 3.843 0 .373.252.81.96.673C25.983 27.451 30 22.196 30 16c0-7.732-6.268-14-14-14z"
-      />
-    </svg>
-  )
-}
 
 function AIRiskLogo({ className }: { className?: string }) {
   return (
@@ -161,17 +113,13 @@ function JiraCard({ configured, baseUrl, projectKey, lastSync }: {
   projectKey: string | null
   lastSync: string | null
 }) {
-  const spaceUrl = baseUrl && projectKey
-    ? `${baseUrl}/jira/software/projects/${projectKey}/boards`
-    : null
+  const spaceUrl = 'https://omniacollective.atlassian.net/jira/software/projects/OCL/boards/133'
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 overflow-hidden">
       <div className="flex items-start justify-between gap-4 px-5 py-4">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#E8F0FE]">
-            <JiraLogo className="h-5 w-5" />
-          </div>
+          <Image src="/integrations/Jira.svg" alt="" aria-hidden width={20} height={20} className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Jira</p>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
@@ -235,9 +183,14 @@ function GitHubCard({ configured, org }: { configured: boolean; org: string | nu
     <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 overflow-hidden">
       <div className="flex items-start justify-between gap-4 px-5 py-4">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
-            <GitHubLogo className="h-5 w-5 text-zinc-800 dark:text-zinc-100" />
-          </div>
+          <Image
+            src="/integrations/GitHub.svg"
+            alt=""
+            aria-hidden
+            width={20}
+            height={20}
+            className="mt-0.5 h-5 w-5 shrink-0 dark:invert"
+          />
           <div>
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">GitHub</p>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
