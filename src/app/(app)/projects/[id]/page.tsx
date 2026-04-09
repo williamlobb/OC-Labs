@@ -4,6 +4,7 @@ import { TeamList } from '@/components/projects/TeamList'
 import { UpdatesFeed } from '@/components/projects/UpdatesFeed'
 import { RepoPreview } from '@/components/projects/RepoPreview'
 import { PostUpdateForm } from '@/components/projects/PostUpdateForm'
+import { RiskAssessmentButton } from '@/components/projects/RiskAssessmentButton'
 import {
   getAuthenticatedUser,
   getCachedProject,
@@ -101,6 +102,12 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
             Team
           </h2>
           <TeamList members={teamMembers} />
+        </section>
+        <section>
+          <h2 className="font-heading mb-3 text-base font-bold text-zinc-900 dark:text-zinc-100">
+            Risk &amp; Compliance
+          </h2>
+          <RiskAssessmentButton />
         </section>
       </aside>
     </div>
