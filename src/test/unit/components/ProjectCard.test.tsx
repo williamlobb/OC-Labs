@@ -131,6 +131,16 @@ describe('join button', () => {
     expect(screen.getByRole('button', { name: 'Request sent' })).toBeInTheDocument()
   })
 
+  it('shows "Submitting..." while join is pending', () => {
+    render(<ProjectCard {...baseProps()} joinPending={true} />)
+    expect(screen.getByRole('button', { name: 'Submitting...' })).toBeInTheDocument()
+  })
+
+  it('shows join error copy when provided', () => {
+    render(<ProjectCard {...baseProps()} joinError="Cannot request your own project" />)
+    expect(screen.getByText('Cannot request your own project')).toBeInTheDocument()
+  })
+
   it('calls onJoin when clicked', async () => {
     const props = baseProps()
     const user = userEvent.setup()
