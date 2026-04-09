@@ -16,7 +16,7 @@ interface SignupState {
 }
 
 function loginHrefForRedirect(redirectTo: string): string {
-  return `/login?redirectTo=${encodeURIComponent(redirectTo)}`
+  return `/login?mode=signin&redirectTo=${encodeURIComponent(redirectTo)}`
 }
 
 function mapSignupError(message: string): string {
@@ -42,6 +42,7 @@ export async function signupAction(
   const rawName = formData.get('name') as string
   const rawEmail = formData.get('email') as string
   const password = formData.get('password') as string
+  const passwordConfirm = formData.get('passwordConfirm') as string
   const redirectTo = formData.get('redirectTo') as string
 
   const name = rawName?.trim().slice(0, 100)
@@ -60,6 +61,12 @@ export async function signupAction(
   }
   if (!password || password.length < 6) {
     return { error: 'Password must be at least 6 characters.' }
+  }
+  if (!passwordConfirm || passwordConfirm.length < 6) {
+    return { error: 'Please confirm your password.' }
+  }
+  if (password !== passwordConfirm) {
+    return { error: 'Passwords do not match.' }
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: 'Please enter a valid email address.', confirmation: false }

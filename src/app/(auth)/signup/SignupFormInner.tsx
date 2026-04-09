@@ -11,9 +11,10 @@ interface SignupState {
 
 interface SignupFormInnerProps {
   redirectTo: string
+  invitedEmail: string
 }
 
-export function SignupFormInner({ redirectTo }: SignupFormInnerProps) {
+export function SignupFormInner({ redirectTo, invitedEmail }: SignupFormInnerProps) {
   const [state, formAction, pending] = useActionState<SignupState | null, FormData>(signupAction, null)
 
   if (state?.confirmation) {
@@ -23,7 +24,7 @@ export function SignupFormInner({ redirectTo }: SignupFormInnerProps) {
           Check your email for a confirmation link to complete sign up.
         </p>
         <a
-          href={state.loginHref ?? `/login?redirectTo=${encodeURIComponent(redirectTo)}`}
+          href={state.loginHref ?? `/login?mode=signin&redirectTo=${encodeURIComponent(redirectTo)}`}
           className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-50"
         >
           Back to sign in
@@ -35,6 +36,7 @@ export function SignupFormInner({ redirectTo }: SignupFormInnerProps) {
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="redirectTo" value={redirectTo} />
+      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Create account with email</p>
 
       {state?.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
@@ -66,8 +68,13 @@ export function SignupFormInner({ redirectTo }: SignupFormInnerProps) {
           type="email"
           required
           autoComplete="email"
+          defaultValue={invitedEmail}
+          placeholder="name@theoc.ai"
           className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
         />
+        <p className="mt-1 text-xs text-zinc-500">
+          Use the invited email address (usually your <span className="font-medium">@theoc.ai</span> address).
+        </p>
       </div>
 
       <div>
@@ -85,12 +92,27 @@ export function SignupFormInner({ redirectTo }: SignupFormInnerProps) {
         />
       </div>
 
+      <div>
+        <label htmlFor="passwordConfirm" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Confirm password
+        </label>
+        <input
+          id="passwordConfirm"
+          name="passwordConfirm"
+          type="password"
+          required
+          minLength={6}
+          autoComplete="new-password"
+          className="mt-1 block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+        />
+      </div>
+
       <button
         type="submit"
         disabled={pending}
         className="w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
       >
-        {pending ? 'Creating account…' : 'Create account'}
+        {pending ? 'Creating account…' : 'Create account with email'}
       </button>
     </form>
   )
