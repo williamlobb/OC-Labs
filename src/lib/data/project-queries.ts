@@ -7,6 +7,7 @@
  */
 import { cache } from 'react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getPlatformRole } from '@/lib/auth/permissions'
 
 export const getAuthenticatedUser = cache(async () => {
   const supabase = await createServerSupabaseClient()
@@ -40,4 +41,9 @@ export const getCachedUserVote = cache(async (projectId: string, userId: string)
     .eq('user_id', userId)
     .maybeSingle()
   return data
+})
+
+export const getCachedPlatformRole = cache(async (userId: string) => {
+  const supabase = await createServerSupabaseClient()
+  return getPlatformRole(supabase, userId)
 })

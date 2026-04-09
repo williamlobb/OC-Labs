@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { TaskBoard } from '@/components/plan/TaskBoard'
+import { canMemberRoleEditProjectContent, isPowerUser } from '@/lib/auth/permissions'
 import {
   getAuthenticatedUser,
+  getCachedPlatformRole,
   getCachedProject,
   getCachedUserMembership,
 } from '@/lib/data/project-queries'
@@ -21,7 +23,7 @@ export default async function PlanPage({ params }: PageProps) {
 
   if (!project) notFound()
 
-  const [{ data: tasks }, { data: members }, membership] = await Promise.all([
+  const [{ data: tasks }, { data: members }, membership, platformRole] = await Promise.all([
     supabase
       .from('tasks')
       .select('*')
@@ -32,10 +34,11 @@ export default async function PlanPage({ params }: PageProps) {
       .select('user_id, role, users(name)')
       .eq('project_id', id),
     getCachedUserMembership(id, user?.id ?? ''),
+    user ? getCachedPlatformRole(user.id) : Promise.resolve<'user'>('user'),
   ])
 
-  const canEdit = !!membership && ['owner', 'contributor'].includes(membership.role)
   const viewerRole = (membership?.role ?? null) as MemberRole | null
+  const canEdit = isPowerUser(platformRole) || canMemberRoleEditProjectContent(viewerRole)
 
   type MemberRow = {
     user_id: string

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { HandRaiseRequests } from '@/components/projects/HandRaiseRequests'
 import { getAuthenticatedUser, getCachedProject } from '@/lib/data/project-queries'
+import { getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -21,7 +22,9 @@ export default async function HandRaisesPage({ params }: PageProps) {
   const project = await getCachedProject(id)
 
   if (!project) notFound()
-  if (project.owner_id !== user?.id) notFound()
+  const platformRole = user ? await getPlatformRole(supabase, user.id) : 'user'
+  const canManageMembers = project.owner_id === user?.id || isPowerUser(platformRole)
+  if (!canManageMembers) notFound()
 
   const { data: raisedHands } = await supabase
     .from('project_members')

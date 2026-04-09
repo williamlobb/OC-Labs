@@ -5,8 +5,10 @@ import { UpdatesFeed } from '@/components/projects/UpdatesFeed'
 import { RepoPreview } from '@/components/projects/RepoPreview'
 import { PostUpdateForm } from '@/components/projects/PostUpdateForm'
 import { RiskAssessmentButton } from '@/components/projects/RiskAssessmentButton'
+import { canMemberRoleEditProjectContent, isPowerUser } from '@/lib/auth/permissions'
 import {
   getAuthenticatedUser,
+  getCachedPlatformRole,
   getCachedProject,
   getCachedUserMembership,
 } from '@/lib/data/project-queries'
@@ -27,7 +29,7 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
 
   if (!project) notFound()
 
-  const [{ data: members }, { data: updates }, membership] = await Promise.all([
+  const [{ data: members }, { data: updates }, membership, platformRole] = await Promise.all([
     supabase
       .from('project_members')
       .select('user_id, role, users(name, profile_photo_url)')
@@ -39,9 +41,12 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
       .eq('project_id', id)
       .order('posted_at', { ascending: false }),
     getCachedUserMembership(id, user?.id ?? ''),
+    user ? getCachedPlatformRole(user.id) : Promise.resolve<'user'>('user'),
   ])
 
-  const canPostUpdate = !!membership && ['owner', 'contributor'].includes(membership.role)
+  const viewerRole = (membership?.role ?? null) as MemberRole | null
+  const canPostUpdate =
+    isPowerUser(platformRole) || canMemberRoleEditProjectContent(viewerRole)
   const draftBody = typeof draft === 'string' ? draft.slice(0, 4000) : ''
   const shouldAutoFocusCompose = compose === '1'
 

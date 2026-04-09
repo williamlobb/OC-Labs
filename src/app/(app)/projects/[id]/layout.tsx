@@ -3,8 +3,10 @@ import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { ProjectActions } from '@/components/projects/ProjectActions'
 import { ProjectTabs } from '@/components/projects/ProjectTabs'
 import { ProjectChatPanel } from '@/components/chat/ProjectChatPanel'
+import { isPowerUser } from '@/lib/auth/permissions'
 import {
   getAuthenticatedUser,
+  getCachedPlatformRole,
   getCachedProject,
   getCachedUserMembership,
   getCachedUserVote,
@@ -21,23 +23,26 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
 
   const user = await getAuthenticatedUser()
 
-  const [project, userVote, userMembership] = await Promise.all([
+  const [project, userVote, userMembership, platformRole] = await Promise.all([
     getCachedProject(id),
     getCachedUserVote(id, user?.id ?? ''),
     getCachedUserMembership(id, user?.id ?? ''),
+    user ? getCachedPlatformRole(user.id) : Promise.resolve<'user'>('user'),
   ])
 
   if (!project) notFound()
 
+  const powerUser = isPowerUser(platformRole)
   const isOwner = project.owner_id === user?.id
+  const canManageProject = isOwner || powerUser
   const membershipRole = (userMembership?.role ?? null) as MemberRole | null
   const hasVoted = !!userVote
   const hasRaisedHand = membershipRole === 'interested'
-  const isChatMember = isOwner || !!userMembership
+  const isChatMember = canManageProject || !!userMembership
 
   return (
     <div className="w-full space-y-6 pb-[28rem]">
-      <ProjectHeader project={project as Project} isOwner={isOwner} />
+      <ProjectHeader project={project as Project} isOwner={canManageProject} />
 
       <ProjectActions
         projectId={id}
@@ -45,14 +50,14 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
         initialHasVoted={hasVoted}
         initialHasRaisedHand={hasRaisedHand}
         initialMembershipRole={membershipRole}
-        isOwner={isOwner}
+        isOwner={canManageProject}
       />
 
-      <ProjectTabs projectId={id} isOwner={isOwner} />
+      <ProjectTabs projectId={id} isOwner={canManageProject} />
 
       <div>{children}</div>
 
-      {/* Persistent chat panel — only visible to project members */}
+      {/* Persistent chat panel — visible to project members and power users */}
       {isChatMember && (
         <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
           <div className="mx-auto max-w-7xl pointer-events-auto">

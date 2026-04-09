@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { canEditProjectContent } from '@/lib/auth/permissions'
+import { canEditProjectContent, getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 import { trimHistoryToBudget } from '@/lib/chat/trim-history'
 
 export const runtime = 'edge'
@@ -37,6 +37,7 @@ export async function POST(
     .eq('project_id', id)
     .eq('user_id', user.id)
     .maybeSingle()
+  const platformRole = await getPlatformRole(supabase, user.id)
 
   const body = await req.json()
   const { message, history: clientHistory } = body
@@ -80,7 +81,7 @@ export async function POST(
         auth_token: authToken,
         base_url: baseURL,
         github_repos: project?.github_repos ?? [],
-        is_owner: membership?.role === 'owner',
+        is_owner: membership?.role === 'owner' || isPowerUser(platformRole),
       }),
     })
   } catch (err) {

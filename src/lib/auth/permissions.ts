@@ -3,6 +3,12 @@ import { MemberRole, PlatformRole } from '@/types'
 
 const CONTENT_ROLES: MemberRole[] = ['owner', 'tech_lead', 'contributor']
 
+export function canMemberRoleEditProjectContent(
+  role: MemberRole | null | undefined
+): role is MemberRole {
+  return role !== undefined && role !== null && CONTENT_ROLES.includes(role)
+}
+
 /**
  * Fetches the user's platform_role from the users table.
  * Returns 'user' as safe default if column is missing or query fails.
@@ -50,7 +56,7 @@ export async function canEditProjectContent(
     .single()
 
   const memberRole = data?.role as MemberRole | null | undefined
-  return memberRole !== undefined && memberRole !== null && CONTENT_ROLES.includes(memberRole)
+  return canMemberRoleEditProjectContent(memberRole)
 }
 
 /**
