@@ -27,6 +27,7 @@ export function ProjectCard(props: ProjectCardViewProps) {
     voteCount,
     hasVoted,
     hasJoined,
+    hasRaisedHand,
     needsHelp,
     onVote,
     onJoin,
@@ -40,7 +41,14 @@ export function ProjectCard(props: ProjectCardViewProps) {
   )
   const visibleTeamMembers = uniqueTeamMembers.slice(0, 6)
   const extraTeamCount = Math.max(0, uniqueTeamMembers.length - visibleTeamMembers.length)
-  const joinButtonLabel = hasJoined ? 'Joined' : needsHelp ? 'We need you' : 'Request to join'
+  const joinButtonLabel = hasRaisedHand
+    ? 'Request sent'
+    : hasJoined
+      ? 'On team'
+      : needsHelp
+        ? 'We need you'
+        : 'Request to join'
+  const isJoinDisabled = hasJoined || hasRaisedHand
 
   return (
     <article
@@ -133,11 +141,16 @@ export function ProjectCard(props: ProjectCardViewProps) {
             </button>
 
             <button
-              onClick={(e) => { e.stopPropagation(); onJoin() }}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (isJoinDisabled) return
+                onJoin()
+              }}
+              disabled={isJoinDisabled}
               className={cn(
                 'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                hasJoined
-                  ? 'bg-blue-100 text-blue-700'
+                isJoinDisabled
+                  ? 'cursor-default bg-blue-100 text-blue-700'
                   : needsHelp
                     ? 'bg-red-100 text-red-700 hover:bg-red-200'
                     : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'

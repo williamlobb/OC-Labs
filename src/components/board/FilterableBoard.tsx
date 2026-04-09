@@ -17,12 +17,14 @@ interface ProjectWithOwner extends Project {
 interface FilterableBoardProps {
   projects: ProjectWithOwner[]
   votedProjectIds: string[]
+  requestedProjectIds: string[]
   joinedProjectIds: string[]
 }
 
 export function FilterableBoard({
   projects,
   votedProjectIds,
+  requestedProjectIds,
   joinedProjectIds,
 }: FilterableBoardProps) {
   const router = useRouter()
@@ -110,12 +112,16 @@ export function FilterableBoard({
               voteCount={project.vote_count}
               hasVoted={votedProjectIds.includes(project.id)}
               hasJoined={joinedProjectIds.includes(project.id)}
+              hasRaisedHand={requestedProjectIds.includes(project.id)}
               needsHelp={project.needs_help}
               onVote={async () => {
                 await fetch(`/api/v1/projects/${project.id}/vote`, { method: 'POST' })
                 router.refresh()
               }}
               onJoin={async () => {
+                if (requestedProjectIds.includes(project.id) || joinedProjectIds.includes(project.id)) {
+                  return
+                }
                 await fetch(`/api/v1/projects/${project.id}/raise-hand`, { method: 'POST' })
                 router.refresh()
               }}

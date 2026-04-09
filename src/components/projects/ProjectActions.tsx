@@ -56,32 +56,50 @@ export function ProjectActions({
     }
   }
 
-  async function handleJoin() {
-    if (joinPending) return
-    // Optimistic update
-    const nextHasRaisedHand = !hasRaisedHand
-    setHasRaisedHand(nextHasRaisedHand)
-    setMembershipRole(nextHasRaisedHand ? 'interested' : null)
+  async function handleRaiseHand() {
+    if (joinPending || hasRaisedHand) return
+
+    const previousHasRaisedHand = hasRaisedHand
+    const previousMembershipRole = membershipRole
+    setHasRaisedHand(true)
+    setMembershipRole('interested')
     setJoinPending(true)
+
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/raise-hand`, { method: 'POST' })
-      if (res.ok) {
-        const data = (await res.json()) as { hasJoined?: boolean; membershipRole?: MemberRole | null }
-        if (data.membershipRole !== undefined) {
-          setMembershipRole(data.membershipRole)
-          setHasRaisedHand(data.membershipRole === 'interested')
-        } else {
-          const joined = !!data.hasJoined
-          setHasRaisedHand(joined)
-          setMembershipRole(joined ? 'interested' : null)
-        }
-      } else {
-        setHasRaisedHand((j) => !j)
-        setMembershipRole(hasRaisedHand ? 'interested' : null)
+      if (!res.ok) {
+        setHasRaisedHand(previousHasRaisedHand)
+        setMembershipRole(previousMembershipRole)
+        return
+      }
+
+      const data = (await res.json()) as { membershipRole?: MemberRole | null }
+      if (data.membershipRole !== undefined) {
+        setMembershipRole(data.membershipRole)
+        setHasRaisedHand(data.membershipRole === 'interested')
       }
     } catch {
-      setHasRaisedHand((j) => !j)
-      setMembershipRole(hasRaisedHand ? 'interested' : null)
+      setHasRaisedHand(previousHasRaisedHand)
+      setMembershipRole(previousMembershipRole)
+    } finally {
+      setJoinPending(false)
+    }
+  }
+
+  async function handleWithdrawHand() {
+    if (joinPending || !hasRaisedHand) return
+
+    setJoinPending(true)
+
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/raise-hand`, { method: 'DELETE' })
+      if (!res.ok) return
+
+      const data = (await res.json()) as { membershipRole?: MemberRole | null }
+      if (data.membershipRole !== undefined) {
+        setMembershipRole(data.membershipRole)
+        setHasRaisedHand(data.membershipRole === 'interested')
+      }
     } finally {
       setJoinPending(false)
     }
@@ -103,18 +121,37 @@ export function ProjectActions({
       </button>
 
       {!isOwner && !isApprovedMember && (
-        <button
-          onClick={handleJoin}
-          disabled={joinPending}
-          className={cn(
-            'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-            hasRaisedHand
-              ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-              : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRaiseHand}
+            disabled={joinPending || hasRaisedHand}
+            className={cn(
+              'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+              hasRaisedHand
+                ? 'cursor-default bg-emerald-100 text-emerald-700'
+                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+            )}
+          >
+            {joinPending
+              ? hasRaisedHand
+                ? 'Saving...'
+                : 'Submitting...'
+              : hasRaisedHand
+                ? 'Request sent ✓'
+                : 'Raise Hand'}
+          </button>
+
+          {hasRaisedHand && (
+            <button
+              type="button"
+              onClick={handleWithdrawHand}
+              disabled={joinPending}
+              className="rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {joinPending ? 'Withdrawing...' : 'Withdraw'}
+            </button>
           )}
-        >
-          {hasRaisedHand ? 'Hand Raised ✓' : 'Raise Hand'}
-        </button>
+        </div>
       )}
     </div>
   )
