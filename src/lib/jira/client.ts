@@ -25,6 +25,18 @@ interface JiraErrorPayload {
   errors?: Record<string, string>
 }
 
+class JiraRequestError extends Error {
+  readonly status: number
+  readonly details: string
+
+  constructor(prefix: string, status: number, details: string) {
+    super(`${prefix} (${status}): ${details}`)
+    this.name = 'JiraRequestError'
+    this.status = status
+    this.details = details
+  }
+}
+
 function getRequiredEnv(name: 'JIRA_BASE_URL' | 'JIRA_EMAIL' | 'JIRA_API_TOKEN'): string {
   const value = process.env[name]?.trim()
   if (!value) {
@@ -74,6 +86,58 @@ function parseJiraError(payload: unknown): string | null {
   return null
 }
 
+function isFieldConfigurationError(details: string, fieldId?: string): boolean {
+  const lower = details.toLowerCase()
+  const normalizedFieldId = fieldId?.toLowerCase()
+  return (
+    Boolean(normalizedFieldId && lower.includes(normalizedFieldId))
+    || lower.includes('cannot be set')
+    || lower.includes('not on the appropriate screen')
+    || lower.includes('unknown field')
+    || lower.includes('field does not exist')
+  )
+}
+
+function getAuthHeader(email: string, apiToken: string): string {
+  return Buffer.from(`${email}:${apiToken}`).toString('base64')
+}
+
+async function postIssue(
+  baseUrl: string,
+  auth: string,
+  fields: Record<string, unknown>,
+  errorPrefix: string
+): Promise<string> {
+  const response = await fetch(`${baseUrl}/rest/api/3/issue`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ fields }),
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    let details = response.statusText || 'Request failed'
+    try {
+      const payload = await response.json()
+      details = parseJiraError(payload) ?? details
+    } catch {
+      // Keep fallback status text when payload is not JSON.
+    }
+    throw new JiraRequestError(errorPrefix, response.status, details)
+  }
+
+  const payload = (await response.json()) as { key?: string }
+  if (!payload.key || typeof payload.key !== 'string') {
+    throw new Error('Jira response did not include an issue key')
+  }
+
+  return payload.key
+}
+
 export async function createIssue({
   summary,
   description,
@@ -96,7 +160,7 @@ export async function createIssue({
   }
 
   const resolvedIssueType = issueType?.trim() || 'Task'
-  const auth = Buffer.from(`${email}:${apiToken}`).toString('base64')
+  const auth = getAuthHeader(email, apiToken)
 
   const fields: Record<string, unknown> = {
     project: { key: trimmedProjectKey },
@@ -113,36 +177,11 @@ export async function createIssue({
     fields.parent = { key: trimmedEpicKey }
   }
 
-  const response = await fetch(`${baseUrl}/rest/api/3/issue`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ fields }),
-    cache: 'no-store',
-  })
-
-  if (!response.ok) {
-    let details = response.statusText || 'Request failed'
-    try {
-      const payload = await response.json()
-      details = parseJiraError(payload) ?? details
-    } catch {
-      // Keep fallback status text when payload is not JSON.
-    }
-    throw new Error(`Jira request failed (${response.status}): ${details}`)
-  }
-
-  const payload = (await response.json()) as { key?: string }
-  if (!payload.key || typeof payload.key !== 'string') {
-    throw new Error('Jira response did not include an issue key')
-  }
+  const key = await postIssue(baseUrl, auth, fields, 'Jira request failed')
 
   return {
-    key: payload.key,
-    url: `${baseUrl}/browse/${payload.key}`,
+    key,
+    url: `${baseUrl}/browse/${key}`,
   }
 }
 
@@ -150,9 +189,12 @@ export async function createIssue({
  * Creates a Jira Epic in the configured project (JIRA_PROJECT_KEY) and returns
  * the new Epic's issue key (e.g. "OC-5").
  *
- * Both `summary` and `customfield_10011` (Epic Name) are set to epicName to
- * support classic/company-managed Scrum projects that still require the custom
- * field on their create screen. Team-managed projects ignore the custom field.
+ * Uses a minimal payload by default (`project`, `issuetype`, `summary`) for
+ * broad compatibility across Jira project configurations.
+ *
+ * If JIRA_EPIC_NAME_FIELD_ID is set (for example customfield_10011), it is
+ * included as an optional field on the first attempt. If Jira returns a known
+ * field/screen mismatch (HTTP 400), we retry once without optional fields.
  */
 export async function createEpic(epicName: string): Promise<string> {
   const baseUrl = normalizeBaseUrl(getRequiredEnv('JIRA_BASE_URL'))
@@ -169,43 +211,31 @@ export async function createEpic(epicName: string): Promise<string> {
     throw new Error('Epic name is required')
   }
 
-  const auth = Buffer.from(`${email}:${apiToken}`).toString('base64')
+  const auth = getAuthHeader(email, apiToken)
+  const optionalEpicNameFieldId = process.env.JIRA_EPIC_NAME_FIELD_ID?.trim()
 
-  const response = await fetch(`${baseUrl}/rest/api/3/issue`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      fields: {
-        project: { key: projectKey },
-        issuetype: { name: 'Epic' },
-        summary: trimmedName,
-        // customfield_10011 is the "Epic Name" field required by some classic
-        // Scrum projects. Set it to the same value as summary for compatibility.
-        customfield_10011: trimmedName,
-      },
-    }),
-    cache: 'no-store',
-  })
+  const baseFields: Record<string, unknown> = {
+    project: { key: projectKey },
+    issuetype: { name: 'Epic' },
+    summary: trimmedName,
+  }
 
-  if (!response.ok) {
-    let details = response.statusText || 'Request failed'
-    try {
-      const payload = await response.json()
-      details = parseJiraError(payload) ?? details
-    } catch {
-      // Keep fallback status text when payload is not JSON.
+  const firstAttemptFields: Record<string, unknown> = { ...baseFields }
+  if (optionalEpicNameFieldId) {
+    firstAttemptFields[optionalEpicNameFieldId] = trimmedName
+  }
+
+  try {
+    return await postIssue(baseUrl, auth, firstAttemptFields, 'Jira create epic failed')
+  } catch (error) {
+    if (
+      optionalEpicNameFieldId
+      && error instanceof JiraRequestError
+      && error.status === 400
+      && isFieldConfigurationError(error.details, optionalEpicNameFieldId)
+    ) {
+      return postIssue(baseUrl, auth, baseFields, 'Jira create epic failed')
     }
-    throw new Error(`Jira create epic failed (${response.status}): ${details}`)
+    throw error
   }
-
-  const payload = (await response.json()) as { key?: string }
-  if (!payload.key || typeof payload.key !== 'string') {
-    throw new Error('Jira response did not include an issue key')
-  }
-
-  return payload.key
 }

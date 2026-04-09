@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { TaskCard } from './TaskCard'
 import { TaskDetailModal } from './TaskDetailModal'
+import { JiraSyncConfirmModal } from './JiraSyncConfirmModal'
 import { cn } from '@/lib/utils/cn'
 import {
   BLOCKED_TASK_PROMPT_AFTER_HOURS,
@@ -33,6 +34,20 @@ interface TaskBoardProps {
   viewerRole: MemberRole | null
 }
 
+interface JiraSyncFeedback {
+  title: string
+  text: string
+  tone: 'success' | 'warning' | 'error'
+  technicalDetails: string[]
+}
+
+interface JiraUnassignedConfirmation {
+  unassignedTaskCount: number
+  unassignedTaskPreview: string[]
+}
+
+const UNASSIGNED_TASKS_CONFIRMATION_CODE = 'UNASSIGNED_TASKS_CONFIRMATION_REQUIRED'
+
 function normalizeTask(task: Task): Task {
   return {
     ...task,
@@ -40,12 +55,37 @@ function normalizeTask(task: Task): Task {
   }
 }
 
+function getTechnicalDetails(payload: unknown): string[] {
+  if (!payload || typeof payload !== 'object') return []
+
+  const source = payload as {
+    technicalDetails?: unknown
+    technicalErrors?: unknown
+    errors?: unknown
+  }
+
+  const technicalDetails = typeof source.technicalDetails === 'string'
+    ? [source.technicalDetails]
+    : []
+
+  const technicalErrors = Array.isArray(source.technicalErrors)
+    ? source.technicalErrors.filter((entry): entry is string => typeof entry === 'string')
+    : []
+
+  const errors = Array.isArray(source.errors)
+    ? source.errors.filter((entry): entry is string => typeof entry === 'string')
+    : []
+
+  return Array.from(new Set([...technicalDetails, ...technicalErrors, ...errors])).filter(Boolean)
+}
+
 export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewerRole }: TaskBoardProps) {
   const [tasks, setTasks] = useState<Task[]>(() => initialTasks.map(normalizeTask))
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [decomposing, setDecomposing] = useState(false)
   const [syncingToJira, setSyncingToJira] = useState(false)
-  const [jiraSyncMessage, setJiraSyncMessage] = useState<{ text: string; isError: boolean } | null>(null)
+  const [jiraSyncMessage, setJiraSyncMessage] = useState<JiraSyncFeedback | null>(null)
+  const [jiraUnassignedConfirmation, setJiraUnassignedConfirmation] = useState<JiraUnassignedConfirmation | null>(null)
   const [readyOnly, setReadyOnly] = useState(false)
   const overdueBlockedTasks = getOverdueBlockedTasks(tasks)
   const shouldPromptOwner = viewerRole === 'owner' && overdueBlockedTasks.length > 0
@@ -66,12 +106,6 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
     }
     return unresolvedCountById
   }, [tasks, taskById])
-
-  useEffect(() => {
-    if (!jiraSyncMessage) return
-    const timer = window.setTimeout(() => setJiraSyncMessage(null), 5000)
-    return () => window.clearTimeout(timer)
-  }, [jiraSyncMessage])
 
   async function handleDecompose() {
     if (decomposing) return
@@ -192,33 +226,93 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
     }
   }
 
-  async function handleSyncToJira() {
+  async function runJiraSync(allowUnassigned: boolean) {
     if (syncingToJira) return
 
     setSyncingToJira(true)
-    setJiraSyncMessage(null)
+    if (!allowUnassigned) {
+      setJiraSyncMessage(null)
+    }
 
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/jira/sync`, { method: 'POST' })
+      const requestInit: RequestInit = { method: 'POST' }
+      if (allowUnassigned) {
+        requestInit.headers = { 'Content-Type': 'application/json' }
+        requestInit.body = JSON.stringify({ allowUnassigned: true })
+      }
+
+      const res = await fetch(`/api/v1/projects/${projectId}/jira/sync`, requestInit)
       const payload = await res.json().catch(() => null)
 
+      if (
+        !allowUnassigned
+        && res.status === 409
+        && payload
+        && typeof payload === 'object'
+        && (payload as { code?: string }).code === UNASSIGNED_TASKS_CONFIRMATION_CODE
+      ) {
+        const unassignedTaskCount = typeof (payload as { unassignedTaskCount?: unknown }).unassignedTaskCount === 'number'
+          ? (payload as { unassignedTaskCount: number }).unassignedTaskCount
+          : 0
+        const unassignedTaskPreview = Array.isArray((payload as { unassignedTaskPreview?: unknown }).unassignedTaskPreview)
+          ? (payload as { unassignedTaskPreview: unknown[] }).unassignedTaskPreview.filter(
+            (title): title is string => typeof title === 'string'
+          )
+          : []
+
+        setJiraUnassignedConfirmation({
+          unassignedTaskCount,
+          unassignedTaskPreview,
+        })
+        return
+      }
+
       if (!res.ok) {
-        const error = typeof payload?.error === 'string' ? payload.error : 'Jira sync failed.'
-        setJiraSyncMessage({ text: error, isError: true })
+        const error = typeof payload?.message === 'string'
+          ? payload.message
+          : typeof payload?.error === 'string'
+            ? payload.error
+            : 'Jira sync failed.'
+        setJiraSyncMessage({
+          title: 'Jira sync could not finish',
+          text: error,
+          tone: 'error',
+          technicalDetails: getTechnicalDetails(payload),
+        })
         return
       }
 
       const created = typeof payload?.created === 'number' ? payload.created : 0
       const skipped = typeof payload?.skipped === 'number' ? payload.skipped : 0
       const failed = typeof payload?.failed === 'number' ? payload.failed : 0
-      const summary = `Jira sync: ${created} created, ${skipped} skipped, ${failed} failed.`
+      const summary = typeof payload?.message === 'string'
+        ? payload.message
+        : failed > 0
+          ? `Jira sync finished with some issues: ${created} created, ${skipped} skipped, ${failed} failed.`
+          : `Jira sync complete: ${created} created and ${skipped} skipped.`
+      const warning = typeof payload?.warning === 'string' ? payload.warning : null
 
-      setJiraSyncMessage({ text: summary, isError: failed > 0 })
+      setJiraSyncMessage({
+        title: failed > 0 ? 'Jira sync completed with issues' : 'Jira sync completed',
+        text: warning ? `${summary} ${warning}` : summary,
+        tone: failed > 0 ? 'warning' : 'success',
+        technicalDetails: getTechnicalDetails(payload),
+      })
+      setJiraUnassignedConfirmation(null)
     } catch {
-      setJiraSyncMessage({ text: 'Jira sync failed. Please try again.', isError: true })
+      setJiraSyncMessage({
+        title: 'Jira sync could not finish',
+        text: 'We could not reach Jira just now. Please try again in a moment.',
+        tone: 'error',
+        technicalDetails: [],
+      })
     } finally {
       setSyncingToJira(false)
     }
+  }
+
+  async function handleSyncToJira() {
+    await runJiraSync(false)
   }
 
   if (tasks.length === 0) {
@@ -306,6 +400,49 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         )}
       </div>
 
+      {jiraSyncMessage && (
+        <section
+          className={cn(
+            'rounded-lg border p-4',
+            jiraSyncMessage.tone === 'error'
+              ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-100'
+              : jiraSyncMessage.tone === 'warning'
+                ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/25 dark:text-amber-100'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-900/30 dark:text-emerald-100'
+          )}
+          role={jiraSyncMessage.tone === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">{jiraSyncMessage.title}</p>
+              <p className="text-sm">{jiraSyncMessage.text}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setJiraSyncMessage(null)}
+              className="shrink-0 rounded border border-current/20 px-2 py-1 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
+              aria-label="Dismiss Jira sync feedback"
+            >
+              Dismiss
+            </button>
+          </div>
+
+          {jiraSyncMessage.technicalDetails.length > 0 && (
+            <details className="mt-3 text-xs">
+              <summary className="cursor-pointer font-medium">Technical details</summary>
+              <div className="mt-2 space-y-1">
+                {jiraSyncMessage.technicalDetails.map((detail, index) => (
+                  <p key={`${detail}-${index}`} className="opacity-90">
+                    {detail}
+                  </p>
+                ))}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {COLUMNS.map((col) => {
           const colTasks = tasks.filter((task) => task.status === col.status)
@@ -368,21 +505,14 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         )
       })()}
 
-      {jiraSyncMessage && (
-        <div className="pointer-events-none fixed bottom-4 right-4 z-50 max-w-sm">
-          <p
-            className={cn(
-              'rounded-md border px-4 py-3 text-sm shadow-lg',
-              jiraSyncMessage.isError
-                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800/60 dark:bg-red-900/40 dark:text-red-200'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-900/40 dark:text-emerald-200'
-            )}
-            role="status"
-            aria-live="polite"
-          >
-            {jiraSyncMessage.text}
-          </p>
-        </div>
+      {jiraUnassignedConfirmation && (
+        <JiraSyncConfirmModal
+          unassignedTaskCount={jiraUnassignedConfirmation.unassignedTaskCount}
+          unassignedTaskPreview={jiraUnassignedConfirmation.unassignedTaskPreview}
+          syncing={syncingToJira}
+          onCancel={() => setJiraUnassignedConfirmation(null)}
+          onConfirm={() => runJiraSync(true)}
+        />
       )}
     </div>
   )
