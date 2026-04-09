@@ -34,7 +34,7 @@ export default async function ProjectDetailPage({ params, searchParams }: PagePr
       .from('project_members')
       .select('user_id, role, users(name, profile_photo_url)')
       .eq('project_id', id)
-      .in('role', ['owner', 'contributor', 'observer']),
+      .in('role', ['owner', 'contributor', 'observer', 'tech_lead']),
     supabase
       .from('updates')
       .select('*')
