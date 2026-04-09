@@ -94,6 +94,9 @@ Task sync to Jira (`POST /api/v1/projects/[id]/jira/sync`) now enforces that eve
 ### ADR-028: Project chat failures auto-reset session state and expose manual reset control
 Project chat now treats timeout/unavailable responses as session-break conditions instead of normal history turns. On these failures, browser-local chat persistence is cleared (failed threads do not survive refresh), the next send auto-starts with empty history, and the composer includes a persistent, low-noise `New chat` button (bottom-left in the prompt bar) for explicit resets at any time. Timeout/unavailable detection and friendly copy are centralized in `src/lib/chat/errors.ts` and reused by both route and client handlers. Ref commit on `main`: `e6d6e38` (2026-04-09).
 
+### ADR-029: Hand-raise requests are idempotent, reviewer-scoped, and notify only once per user/project
+`POST /api/v1/projects/[id]/raise-hand` is now idempotent "request join" (no toggle). `DELETE /api/v1/projects/[id]/raise-hand` explicitly withdraws a pending request. Repeat presses while already interested do not create duplicate requests. Owner Slack notification is persisted as one-time per `(project_id, user_id)` via `project_hand_raise_notifications`; re-raise after withdraw does not emit a second notification. Hand-raise review visibility is scoped to project owner, project `tech_lead`, and `power_user`; reviewers can approve with role assignment (`contributor`, `observer`, `tech_lead`) or deny. Hand-raise Slack routing supports a dedicated private destination via `SLACK_WEBHOOK_HAND_RAISES` (falls back to `SLACK_WEBHOOK_PROJECTS`).
+
 ### E2E Verification: Full invite flow confirmed in production (2026-04-09)
 Live end-to-end test run on https://oclabs.space confirmed the complete invite flow works correctly:
 1. Power user (williamlobb) sends invite from `/admin` → "Invite Platform Role" modal → email delivered via Resend from `noreply@oclabs.space` in <5 seconds.
