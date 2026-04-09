@@ -12,6 +12,17 @@ interface TaskRow {
   assignee_id: string | null
 }
 
+interface SyncRequestBody {
+  allowUnassigned?: boolean
+}
+
+interface FriendlyJiraMessage {
+  userMessage: string
+  technicalDetails?: string
+}
+
+const UNASSIGNED_TASKS_CONFIRMATION_CODE = 'UNASSIGNED_TASKS_CONFIRMATION_REQUIRED'
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   return 'Unknown error'
@@ -23,6 +34,69 @@ function hasRequiredJiraConfig(): string | null {
   )
   if (missingVars.length === 0) return null
   return `Missing Jira env vars: ${missingVars.join(', ')}`
+}
+
+function toFriendlyJiraMessage(rawMessage: string): FriendlyJiraMessage {
+  const message = rawMessage.trim()
+  const lower = message.toLowerCase()
+
+  if (
+    lower.includes('customfield_10011')
+    || lower.includes('epic name')
+    || lower.includes('appropriate screen')
+  ) {
+    return {
+      userMessage: 'Jira needs a quick Epic field setup update before this sync can finish.',
+      technicalDetails: message,
+    }
+  }
+
+  if (lower.includes('missing jira env vars') || lower.includes('is not configured')) {
+    return {
+      userMessage: 'Jira connection settings are incomplete. Ask an admin to finish setup, then try again.',
+      technicalDetails: message,
+    }
+  }
+
+  if (
+    lower.includes('not authorized')
+    || lower.includes('unauthorized')
+    || lower.includes('forbidden')
+    || lower.includes('jira request failed (401)')
+    || lower.includes('jira request failed (403)')
+  ) {
+    return {
+      userMessage: 'OC Labs could not authenticate with Jira. Please ask an admin to reconnect Jira credentials.',
+      technicalDetails: message,
+    }
+  }
+
+  if (
+    lower.includes('fetch failed')
+    || lower.includes('network')
+    || lower.includes('timeout')
+    || lower.includes('econnreset')
+    || lower.includes('etimedout')
+  ) {
+    return {
+      userMessage: 'We could not reach Jira just now. Please try again in a moment.',
+      technicalDetails: message,
+    }
+  }
+
+  return {
+    userMessage: 'Jira sync hit an unexpected issue. Please try again.',
+    technicalDetails: message,
+  }
+}
+
+async function parseAllowUnassigned(req: NextRequest): Promise<boolean> {
+  try {
+    const body = (await req.json()) as SyncRequestBody
+    return body?.allowUnassigned === true
+  } catch {
+    return false
+  }
 }
 
 function buildIssueSummary(projectTitle: string, taskTitle: string): string {
@@ -82,11 +156,12 @@ async function ensureProjectEpicKey(
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params
   const supabase = await createServerSupabaseClient()
+  const allowUnassigned = await parseAllowUnassigned(req)
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -98,7 +173,15 @@ export async function POST(
 
   const configError = hasRequiredJiraConfig()
   if (configError) {
-    return NextResponse.json({ error: configError }, { status: 500 })
+    const friendly = toFriendlyJiraMessage(configError)
+    return NextResponse.json(
+      {
+        error: friendly.userMessage,
+        message: friendly.userMessage,
+        technicalDetails: friendly.technicalDetails,
+      },
+      { status: 500 }
+    )
   }
 
   const [{ data: project, error: projectError }, { data: tasks, error: tasksError }] = await Promise.all([
@@ -118,17 +201,20 @@ export async function POST(
   const unassignedUnsyncedTasks = taskRows.filter(
     (task) => !task.jira_issue_key?.trim() && !task.assignee_id
   )
-  if (unassignedUnsyncedTasks.length > 0) {
-    const preview = unassignedUnsyncedTasks
-      .slice(0, 3)
+  if (unassignedUnsyncedTasks.length > 0 && !allowUnassigned) {
+    const unassignedTaskPreview = unassignedUnsyncedTasks
+      .slice(0, 5)
       .map((task) => task.title)
-      .join(', ')
-    const suffix = unassignedUnsyncedTasks.length > 3 ? ', ...' : ''
+    const message = 'Some tasks are still unassigned. Confirm if you want to sync them anyway.'
     return NextResponse.json(
       {
-        error: `Assign each unsynced task before Jira sync. Unassigned: ${preview}${suffix}`,
+        code: UNASSIGNED_TASKS_CONFIRMATION_CODE,
+        message,
+        error: message,
+        unassignedTaskCount: unassignedUnsyncedTasks.length,
+        unassignedTaskPreview,
       },
-      { status: 400 }
+      { status: 409 }
     )
   }
 
@@ -140,13 +226,22 @@ export async function POST(
     (project as { jira_epic_key?: string | null }).jira_epic_key
   )
   if (epicError) {
-    return NextResponse.json({ error: epicError }, { status: 500 })
+    const friendly = toFriendlyJiraMessage(epicError)
+    return NextResponse.json(
+      {
+        error: friendly.userMessage,
+        message: friendly.userMessage,
+        technicalDetails: friendly.technicalDetails,
+      },
+      { status: 500 }
+    )
   }
 
   let created = 0
   let skipped = 0
   let failed = 0
   const errors: string[] = []
+  const technicalErrors: string[] = []
 
   for (const task of taskRows) {
     if (task.jira_issue_key?.trim()) {
@@ -177,16 +272,37 @@ export async function POST(
 
       if (updateError) {
         failed += 1
-        errors.push(`${task.title}: failed to save Jira mapping (${updateError.message})`)
+        errors.push(`${task.title}: Synced to Jira, but we could not save the Jira link in OC Labs.`)
+        technicalErrors.push(`${task.title}: failed to save Jira mapping (${updateError.message})`)
         continue
       }
 
       created += 1
     } catch (error) {
       failed += 1
-      errors.push(`${task.title}: ${getErrorMessage(error)}`)
+      const friendly = toFriendlyJiraMessage(getErrorMessage(error))
+      errors.push(`${task.title}: ${friendly.userMessage}`)
+      if (friendly.technicalDetails) {
+        technicalErrors.push(`${task.title}: ${friendly.technicalDetails}`)
+      }
     }
   }
 
-  return NextResponse.json({ created, skipped, failed, errors })
+  const warning = allowUnassigned && unassignedUnsyncedTasks.length > 0
+    ? `Included ${unassignedUnsyncedTasks.length} unassigned task${unassignedUnsyncedTasks.length === 1 ? '' : 's'} because you confirmed sync anyway.`
+    : undefined
+
+  const message = failed > 0
+    ? `Jira sync finished with some issues: ${created} created, ${skipped} skipped, ${failed} failed.`
+    : `Jira sync complete: ${created} created and ${skipped} skipped.`
+
+  return NextResponse.json({
+    created,
+    skipped,
+    failed,
+    errors,
+    technicalErrors,
+    warning,
+    message,
+  })
 }
