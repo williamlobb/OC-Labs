@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { canEditProjectContent } from '@/lib/auth/permissions'
-import { createIssue } from '@/lib/jira/client'
+import { createEpic, createIssue } from '@/lib/jira/client'
 
 interface TaskRow {
   id: string
   title: string
   body: string | null
   jira_issue_key: string | null
+  assignee_id: string | null
 }
 
 function getErrorMessage(error: unknown): string {
@@ -47,6 +49,38 @@ function buildIssueDescription(projectId: string, projectTitle: string, taskTitl
   return lines.join('\n')
 }
 
+async function ensureProjectEpicKey(
+  projectId: string,
+  projectTitle: string,
+  currentEpicKey: string | null | undefined
+): Promise<{ epicKey?: string; error?: string }> {
+  const trimmedCurrent = currentEpicKey?.trim()
+  if (trimmedCurrent) {
+    return { epicKey: trimmedCurrent }
+  }
+
+  try {
+    const createdEpicKey = await createEpic(projectTitle)
+    const trimmedCreated = createdEpicKey.trim()
+    if (!trimmedCreated) {
+      return { error: 'Jira epic creation returned an empty key.' }
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from('projects')
+      .update({ jira_epic_key: trimmedCreated })
+      .eq('id', projectId)
+
+    if (updateError) {
+      return { error: `Created Jira epic but failed to save it on project (${updateError.message}).` }
+    }
+
+    return { epicKey: trimmedCreated }
+  } catch (error) {
+    return { error: `Failed to create Jira epic for this project (${getErrorMessage(error)}).` }
+  }
+}
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -71,7 +105,7 @@ export async function POST(
     supabase.from('projects').select('id, title, jira_epic_key').eq('id', id).single(),
     supabase
       .from('tasks')
-      .select('id, title, body, jira_issue_key')
+      .select('id, title, body, jira_issue_key, assignee_id')
       .eq('project_id', id)
       .order('created_at', { ascending: true }),
   ])
@@ -80,18 +114,41 @@ export async function POST(
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (tasksError) return NextResponse.json({ error: tasksError.message }, { status: 500 })
 
+  const taskRows = (tasks ?? []) as TaskRow[]
+  const unassignedUnsyncedTasks = taskRows.filter(
+    (task) => !task.jira_issue_key?.trim() && !task.assignee_id
+  )
+  if (unassignedUnsyncedTasks.length > 0) {
+    const preview = unassignedUnsyncedTasks
+      .slice(0, 3)
+      .map((task) => task.title)
+      .join(', ')
+    const suffix = unassignedUnsyncedTasks.length > 3 ? ', ...' : ''
+    return NextResponse.json(
+      {
+        error: `Assign each unsynced task before Jira sync. Unassigned: ${preview}${suffix}`,
+      },
+      { status: 400 }
+    )
+  }
+
   const jiraProjectKey = process.env.JIRA_PROJECT_KEY!.trim()
   const jiraIssueType = process.env.JIRA_ISSUE_TYPE?.trim() || 'Task'
-  // jira_epic_key may be null if Jira was unavailable at project creation time.
-  // In that case, issues are created without an Epic link (graceful degradation).
-  const epicKey = (project as { jira_epic_key?: string | null }).jira_epic_key ?? undefined
+  const { epicKey, error: epicError } = await ensureProjectEpicKey(
+    project.id,
+    project.title,
+    (project as { jira_epic_key?: string | null }).jira_epic_key
+  )
+  if (epicError) {
+    return NextResponse.json({ error: epicError }, { status: 500 })
+  }
 
   let created = 0
   let skipped = 0
   let failed = 0
   const errors: string[] = []
 
-  for (const task of (tasks ?? []) as TaskRow[]) {
+  for (const task of taskRows) {
     if (task.jira_issue_key?.trim()) {
       skipped += 1
       continue

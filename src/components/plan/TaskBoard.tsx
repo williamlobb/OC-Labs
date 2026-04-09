@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { TaskCard } from './TaskCard'
 import { TaskDetailModal } from './TaskDetailModal'
 import { cn } from '@/lib/utils/cn'
@@ -66,6 +66,12 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
     }
     return unresolvedCountById
   }, [tasks, taskById])
+
+  useEffect(() => {
+    if (!jiraSyncMessage) return
+    const timer = window.setTimeout(() => setJiraSyncMessage(null), 5000)
+    return () => window.clearTimeout(timer)
+  }, [jiraSyncMessage])
 
   async function handleDecompose() {
     if (decomposing) return
@@ -300,19 +306,6 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         )}
       </div>
 
-      {jiraSyncMessage && (
-        <p
-          className={cn(
-            'text-xs',
-            jiraSyncMessage.isError
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-emerald-700 dark:text-emerald-400'
-          )}
-        >
-          {jiraSyncMessage.text}
-        </p>
-      )}
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {COLUMNS.map((col) => {
           const colTasks = tasks.filter((task) => task.status === col.status)
@@ -374,6 +367,23 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
           />
         )
       })()}
+
+      {jiraSyncMessage && (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-50 max-w-sm">
+          <p
+            className={cn(
+              'rounded-md border px-4 py-3 text-sm shadow-lg',
+              jiraSyncMessage.isError
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800/60 dark:bg-red-900/40 dark:text-red-200'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-900/40 dark:text-emerald-200'
+            )}
+            role="status"
+            aria-live="polite"
+          >
+            {jiraSyncMessage.text}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
