@@ -1,9 +1,12 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { GitHubButton } from '@/components/auth/GitHubButton'
+import { isInvitationRedirect } from '@/lib/utils/invitations'
 import { LoginFormInner } from './LoginFormInner'
 
 interface SearchParams {
   redirectTo?: string
+  next?: string
   error?: string
 }
 
@@ -12,7 +15,12 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const { redirectTo, error } = await searchParams
+  const { redirectTo, next, error } = await searchParams
+  const safeRedirect = redirectTo ?? next
+  const showInviteSignup = isInvitationRedirect(safeRedirect)
+  const signupHref = showInviteSignup && safeRedirect
+    ? `/signup?redirectTo=${encodeURIComponent(safeRedirect)}`
+    : null
 
   return (
     <div className="space-y-6">
@@ -28,7 +36,7 @@ export default async function LoginPage({
       )}
 
       <Suspense fallback={null}>
-        <LoginFormInner redirectTo={redirectTo} />
+        <LoginFormInner redirectTo={safeRedirect} />
       </Suspense>
 
       <div className="relative">
@@ -40,7 +48,16 @@ export default async function LoginPage({
         </div>
       </div>
 
-      <GitHubButton redirectTo={redirectTo} />
+      <GitHubButton redirectTo={safeRedirect} />
+
+      {signupHref && (
+        <p className="text-center text-sm text-zinc-500">
+          Need an account?{' '}
+          <Link href={signupHref} className="font-medium text-zinc-900 hover:underline dark:text-zinc-100">
+            Create one with this invite
+          </Link>
+        </p>
+      )}
 
     </div>
   )

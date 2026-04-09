@@ -17,38 +17,40 @@ vi.mock('@/app/(auth)/signup/actions', () => ({
 // ---- module under test ----------------------------------------------------
 import { SignupFormInner } from '@/app/(auth)/signup/SignupFormInner'
 
+const INVITE_REDIRECT = '/api/v1/invitations/test-token/accept'
+
 // ---- tests -----------------------------------------------------------------
 
 describe('SignupFormInner', () => {
   describe('form view (initial render)', () => {
     it('renders a Name input', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
     })
 
     it('renders an Email input', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       expect(screen.getByLabelText('Email')).toBeInTheDocument()
     })
 
     it('renders a Password input', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       expect(screen.getByLabelText('Password')).toBeInTheDocument()
     })
 
     it('renders a submit button with "Create account" label', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       expect(screen.getByRole('button', { name: 'Create account' })).toBeInTheDocument()
     })
 
     it('does not render an error message on initial render', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       // The error paragraph is only rendered when state.error is truthy
       expect(screen.queryByRole('paragraph')).not.toBeInTheDocument()
     })
 
     it('password input enforces minLength=6', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       const passwordInput = screen.getByLabelText('Password')
       expect(passwordInput).toHaveAttribute('minLength', '6')
     })
@@ -63,7 +65,7 @@ describe('SignupFormInner', () => {
       })
 
       const user = userEvent.setup()
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
 
       await user.type(screen.getByLabelText("Name"), "Test User")
       await user.type(screen.getByLabelText("Email"), "test@example.com")
@@ -83,7 +85,7 @@ describe('SignupFormInner', () => {
       })
 
       const user = userEvent.setup()
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
 
       await user.type(screen.getByLabelText('Name'), 'Alice')
       await user.type(screen.getByLabelText('Email'), 'alice@example.com')
@@ -103,7 +105,7 @@ describe('SignupFormInner', () => {
       })
 
       const user = userEvent.setup()
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
 
       await user.type(screen.getByLabelText('Name'), 'Alice')
       await user.type(screen.getByLabelText('Email'), 'alice@example.com')
@@ -111,7 +113,10 @@ describe('SignupFormInner', () => {
       await user.click(screen.getByRole('button', { name: 'Create account' }))
 
       const link = await screen.findByRole('link', { name: /back to sign in/i })
-      expect(link).toHaveAttribute('href', '/login')
+      expect(link).toHaveAttribute(
+        'href',
+        `/login?redirectTo=${encodeURIComponent(INVITE_REDIRECT)}`
+      )
     })
 
     it('hides the form when confirmation view is displayed', async () => {
@@ -122,7 +127,7 @@ describe('SignupFormInner', () => {
       })
 
       const user = userEvent.setup()
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
 
       await user.type(screen.getByLabelText('Name'), 'Alice')
       await user.type(screen.getByLabelText('Email'), 'alice@example.com')
@@ -136,17 +141,17 @@ describe('SignupFormInner', () => {
 
   describe('accessibility', () => {
     it('name input has autocomplete="name"', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       expect(screen.getByLabelText('Name')).toHaveAttribute('autocomplete', 'name')
     })
 
     it('email input has autocomplete="email"', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       expect(screen.getByLabelText('Email')).toHaveAttribute('autocomplete', 'email')
     })
 
     it('password input has autocomplete="new-password"', () => {
-      render(<SignupFormInner />)
+      render(<SignupFormInner redirectTo={INVITE_REDIRECT} />)
       expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'new-password')
     })
   })

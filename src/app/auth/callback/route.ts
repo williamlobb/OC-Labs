@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { upsertUser } from '@/lib/auth/upsert-user'
 import { isSafeRedirect } from '@/lib/utils/is-safe-redirect'
+import { normalizeEmail } from '@/lib/utils/email'
 import { syncCoWorkProfile } from '@/lib/cowork/sync'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
@@ -64,14 +65,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // After successful auth, gate access to invited users only
   const { data: { user: authedUser } } = await supabase.auth.getUser()
-  if (authedUser?.email) {
-    // Check if this email has ever been invited (pending or accepted)
-    const { count: inviteCount } = await supabaseAdmin
+  const normalizedAuthedEmail = normalizeEmail(authedUser?.email)
+  if (authedUser && normalizedAuthedEmail) {
+    const { data: matchingInvites } = await supabaseAdmin
       .from('role_invitations')
-      .select('id', { count: 'exact', head: true })
-      .eq('email', authedUser.email)
+      .select('id, email, platform_role, project_id, project_role, accepted_at')
+      .ilike('email', normalizedAuthedEmail)
 
-    if ((inviteCount ?? 0) === 0) {
+    const invitesForEmail = (matchingInvites ?? []).filter(
+      (invite) => normalizeEmail(invite.email) === normalizedAuthedEmail
+    )
+
+    if (invitesForEmail.length === 0) {
       // Not invited — revoke the session we just created and redirect to error
       const errorResponse = NextResponse.redirect(new URL('/login?error=not_invited', request.url))
       // Clear any auth cookies set by exchangeCodeForSession
@@ -90,13 +95,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // Apply any pending invitations for this user's email
-    const { data: pendingInvites } = await supabaseAdmin
-      .from('role_invitations')
-      .select('*')
-      .eq('email', authedUser.email)
-      .is('accepted_at', null)
+    const pendingInvites = invitesForEmail.filter((invite) => invite.accepted_at === null)
 
-    for (const invite of (pendingInvites ?? [])) {
+    for (const invite of pendingInvites) {
       if (invite.platform_role) {
         await supabaseAdmin
           .from('users')

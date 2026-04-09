@@ -3,8 +3,18 @@
 import { useActionState } from 'react'
 import { signupAction } from './actions'
 
-export function SignupFormInner() {
-  const [state, formAction, pending] = useActionState(signupAction, null)
+interface SignupState {
+  error: string | null
+  confirmation?: boolean
+  loginHref?: string
+}
+
+interface SignupFormInnerProps {
+  redirectTo: string
+}
+
+export function SignupFormInner({ redirectTo }: SignupFormInnerProps) {
+  const [state, formAction, pending] = useActionState<SignupState | null, FormData>(signupAction, null)
 
   if (state?.confirmation) {
     return (
@@ -12,7 +22,10 @@ export function SignupFormInner() {
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
           Check your email for a confirmation link to complete sign up.
         </p>
-        <a href="/login" className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-50">
+        <a
+          href={state.loginHref ?? `/login?redirectTo=${encodeURIComponent(redirectTo)}`}
+          className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-50"
+        >
           Back to sign in
         </a>
       </div>
@@ -21,6 +34,8 @@ export function SignupFormInner() {
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="redirectTo" value={redirectTo} />
+
       {state?.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
           {state.error}

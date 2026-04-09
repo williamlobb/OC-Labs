@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 import { sendRoleInviteEmail } from '@/lib/email/invite'
+import { normalizeEmail } from '@/lib/utils/email'
 import type { PlatformRole, MemberRole } from '@/types'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://oclabs.space'
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const email = typeof body.email === 'string' ? body.email.trim() : ''
+  const email = normalizeEmail(typeof body.email === 'string' ? body.email : '')
   if (!email) {
     return NextResponse.json({ error: 'email is required' }, { status: 400 })
   }

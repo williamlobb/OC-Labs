@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { emailsEqual } from '@/lib/utils/email'
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +14,7 @@ export async function GET(
 
   if (!user) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('next', `/api/v1/invitations/${token}/accept`)
+    loginUrl.searchParams.set('redirectTo', `/api/v1/invitations/${token}/accept`)
     return NextResponse.redirect(loginUrl)
   }
 
@@ -27,7 +28,7 @@ export async function GET(
     return NextResponse.redirect(new URL('/discover?error=invalid_invitation', request.url))
   }
 
-  if (invitation.email !== user.email) {
+  if (!emailsEqual(invitation.email, user.email)) {
     return NextResponse.redirect(new URL('/discover?error=invitation_email_mismatch', request.url))
   }
 

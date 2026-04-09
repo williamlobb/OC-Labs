@@ -58,8 +58,28 @@ function getRedirectPath(response: Response): string {
 }
 
 function makeAdminQuery() {
+  const invitedRows = [
+    {
+      id: 'inv-1',
+      email: 'user@example.com',
+      platform_role: null,
+      project_id: null,
+      project_role: null,
+      accepted_at: '2026-01-01T00:00:00.000Z',
+    },
+    {
+      id: 'inv-2',
+      email: 'u@example.com',
+      platform_role: null,
+      project_id: null,
+      project_role: null,
+      accepted_at: '2026-01-01T00:00:00.000Z',
+    },
+  ]
+
   const q = {
     select: vi.fn(),
+    ilike: vi.fn(),
     eq: vi.fn(),
     is: vi.fn(),
     update: vi.fn(),
@@ -67,6 +87,7 @@ function makeAdminQuery() {
   } as Record<string, ReturnType<typeof vi.fn>>
 
   q.select.mockReturnValue(q)
+  q.ilike.mockResolvedValue({ data: invitedRows, error: null })
   q.eq.mockReturnValue(q)
   q.update.mockReturnValue(q)
   q.upsert.mockResolvedValue({ error: null })

@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const { mockSignUp } = vi.hoisted(() => ({ mockSignUp: vi.fn() }))
 const { mockUpsertUser } = vi.hoisted(() => ({ mockUpsertUser: vi.fn() }))
+const { mockAdminFrom } = vi.hoisted(() => ({ mockAdminFrom: vi.fn() }))
 
 vi.mock('@/lib/supabase/server', () => ({
   createServerSupabaseClient: vi.fn().mockResolvedValue({
@@ -21,6 +22,10 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/auth/upsert-user', () => ({
   upsertUser: mockUpsertUser,
+}))
+
+vi.mock('@/lib/supabase/admin', () => ({
+  supabaseAdmin: { from: mockAdminFrom },
 }))
 
 vi.mock('next/navigation', () => ({
@@ -48,6 +53,7 @@ const validFields = {
   name: 'Alice Smith',
   email: 'alice@example.com',
   password: 'secure123',
+  redirectTo: '/api/v1/invitations/test-token/accept',
 }
 
 function makeValidFormData(overrides: Record<string, string> = {}): FormData {
@@ -57,9 +63,32 @@ function makeValidFormData(overrides: Record<string, string> = {}): FormData {
 // ---- tests -----------------------------------------------------------------
 
 describe('signupAction', () => {
+  function makeInvitationQuery(invitedEmail = validFields.email) {
+    const q = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    } as Record<string, ReturnType<typeof vi.fn>>
+
+    q.select.mockReturnValue(q)
+    q.eq.mockReturnValue(q)
+    q.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'inv-123',
+        email: invitedEmail,
+        accepted_at: null,
+      },
+      error: null,
+    })
+
+    return q
+  }
+
   beforeEach(() => {
     mockSignUp.mockReset()
     mockUpsertUser.mockReset()
+    mockAdminFrom.mockReset()
+    mockAdminFrom.mockImplementation(() => makeInvitationQuery())
   })
 
   describe('input validation', () => {
@@ -68,6 +97,7 @@ describe('signupAction', () => {
         name: '',
         email: 'a@example.com',
         password: 'pass123',
+        redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Name is required.')
     })
@@ -77,6 +107,7 @@ describe('signupAction', () => {
         name: '   ',
         email: 'a@example.com',
         password: 'pass123',
+        redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Name is required.')
     })
@@ -86,6 +117,7 @@ describe('signupAction', () => {
         name: 'Alice',
         email: '',
         password: 'pass123',
+        redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Email is required.')
     })
@@ -95,6 +127,7 @@ describe('signupAction', () => {
         name: 'Alice',
         email: 'not-an-email',
         password: 'pass123',
+        redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Please enter a valid email address.')
     })
@@ -104,6 +137,7 @@ describe('signupAction', () => {
         name: 'Alice',
         email: 'a@example.com',
         password: '',
+        redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Password must be at least 6 characters.')
     })
@@ -113,12 +147,21 @@ describe('signupAction', () => {
         name: 'Alice',
         email: 'a@example.com',
         password: '12345',
+        redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Password must be at least 6 characters.')
     })
 
     it('does not call Supabase when client-side validation fails', async () => {
-      await signupAction(null, makeFormData({ name: '', email: '', password: '' }))
+      await signupAction(
+        null,
+        makeFormData({
+          name: '',
+          email: '',
+          password: '',
+          redirectTo: validFields.redirectTo,
+        })
+      )
       expect(mockSignUp).not.toHaveBeenCalled()
     })
   })
@@ -230,11 +273,11 @@ describe('signupAction', () => {
       expect(mockUpsertUser).toHaveBeenCalledWith(sessionUser)
     })
 
-    it('redirects to /discover after a successful upsert', async () => {
+    it('redirects back to invitation acceptance after a successful upsert', async () => {
       await expect(
         signupAction(null, makeValidFormData())
       ).rejects.toSatisfy((err: unknown) => {
-        return (err as Error & { digest: string }).digest?.includes('/discover')
+        return (err as Error & { digest: string }).digest?.includes(validFields.redirectTo)
       })
     })
 
