@@ -3,11 +3,10 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { HandRaiseRequests } from '@/components/projects/HandRaiseRequests'
 import {
   getAuthenticatedUser,
-  getCachedPlatformRole,
   getCachedProject,
   getCachedUserMembership,
 } from '@/lib/data/project-queries'
-import { canMemberRoleReviewHandRaises, isPowerUser } from '@/lib/auth/permissions'
+import { canMemberRoleReviewHandRaises } from '@/lib/auth/permissions'
 import type { MemberRole } from '@/types'
 
 interface PageProps {
@@ -26,15 +25,11 @@ export default async function HandRaisesPage({ params }: PageProps) {
   const project = await getCachedProject(id)
 
   if (!project) notFound()
-  const [membership, platformRole] = await Promise.all([
-    user ? getCachedUserMembership(id, user.id) : Promise.resolve(null),
-    user ? getCachedPlatformRole(user.id) : Promise.resolve<'user'>('user'),
-  ])
+  const membership = await (user ? getCachedUserMembership(id, user.id) : Promise.resolve(null))
   const viewerRole = (membership?.role ?? null) as MemberRole | null
   const canReviewHandRaises =
     project.owner_id === user?.id ||
-    canMemberRoleReviewHandRaises(viewerRole) ||
-    isPowerUser(platformRole)
+    canMemberRoleReviewHandRaises(viewerRole)
   if (!canReviewHandRaises) notFound()
 
   const { data: raisedHands } = await supabaseAdmin
