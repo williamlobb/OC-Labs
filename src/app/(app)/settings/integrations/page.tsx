@@ -11,8 +11,22 @@ export default async function IntegrationsPage() {
   const role = await getPlatformRole(supabase, user.id)
   if (!isPowerUser(role)) notFound()
 
-  const jiraConfigured = !!(process.env.JIRA_BASE_URL && process.env.JIRA_API_TOKEN)
+  const jiraBaseUrl = process.env.JIRA_BASE_URL?.trim().replace(/\/+$/, '') ?? null
+  const jiraProjectKey = process.env.JIRA_PROJECT_KEY?.trim() ?? null
+  const jiraConfigured = !!(jiraBaseUrl && process.env.JIRA_API_TOKEN && jiraProjectKey)
   const githubConfigured = !!process.env.GITHUB_TOKEN
+  const githubOrg = process.env.GITHUB_ORG?.trim() ?? null
+
+  // Get the most recent Jira sync timestamp across all tasks
+  const { data: lastSyncRow } = jiraConfigured
+    ? await supabase
+        .from('tasks')
+        .select('jira_synced_at')
+        .not('jira_synced_at', 'is', null)
+        .order('jira_synced_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null }
 
   return (
     <div className="space-y-6">
@@ -22,7 +36,14 @@ export default async function IntegrationsPage() {
           Manage connections to external tools and services.
         </p>
       </div>
-      <IntegrationsPanel jiraConfigured={jiraConfigured} githubConfigured={githubConfigured} />
+      <IntegrationsPanel
+        jiraConfigured={jiraConfigured}
+        jiraBaseUrl={jiraBaseUrl}
+        jiraProjectKey={jiraProjectKey}
+        jiraLastSync={(lastSyncRow as { jira_synced_at: string } | null)?.jira_synced_at ?? null}
+        githubConfigured={githubConfigured}
+        githubOrg={githubOrg}
+      />
     </div>
   )
 }
