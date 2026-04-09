@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { canManageMembers } from '@/lib/auth/permissions'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { canReviewHandRaises } from '@/lib/auth/permissions'
+import type { MemberRole } from '@/types'
+
+const APPROVABLE_ROLES: MemberRole[] = ['contributor', 'observer', 'tech_lead']
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; userId: string }> }
 ): Promise<NextResponse> {
   const { id, userId } = await params
@@ -14,12 +18,29 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const allowed = await canManageMembers(supabase, user.id, id)
+  const allowed = await canReviewHandRaises(supabase, user.id, id)
   if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { data: requestedMember } = await supabase
+  let role: MemberRole = 'contributor'
+  try {
+    const body = (await req.json().catch(() => null)) as { role?: MemberRole } | null
+    if (body?.role) {
+      role = body.role
+    }
+  } catch {
+    // no-op: falls back to contributor
+  }
+
+  if (!APPROVABLE_ROLES.includes(role)) {
+    return NextResponse.json(
+      { error: `role must be one of: ${APPROVABLE_ROLES.join(', ')}` },
+      { status: 400 }
+    )
+  }
+
+  const { data: requestedMember } = await supabaseAdmin
     .from('project_members')
     .select('role, users(name, profile_photo_url)')
     .eq('project_id', id)
@@ -37,9 +58,9 @@ export async function POST(
     )
   }
 
-  const { data: updatedMember, error: updateError } = await supabase
+  const { data: updatedMember, error: updateError } = await supabaseAdmin
     .from('project_members')
-    .update({ role: 'contributor' })
+    .update({ role })
     .eq('project_id', id)
     .eq('user_id', userId)
     .select('role, users(name, profile_photo_url)')

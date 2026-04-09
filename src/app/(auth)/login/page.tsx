@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { GitHubButton } from '@/components/auth/GitHubButton'
 import { isInvitationRedirect } from '@/lib/utils/invitations'
 import { LoginFormInner } from './LoginFormInner'
@@ -8,6 +9,7 @@ interface SearchParams {
   redirectTo?: string
   next?: string
   error?: string
+  mode?: string
 }
 
 export default async function LoginPage({
@@ -15,9 +17,14 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  const { redirectTo, next, error } = await searchParams
+  const { redirectTo, next, error, mode } = await searchParams
   const safeRedirect = redirectTo ?? next
   const showInviteSignup = isInvitationRedirect(safeRedirect)
+
+  if (showInviteSignup && safeRedirect && mode !== 'signin') {
+    redirect(`/signup?redirectTo=${encodeURIComponent(safeRedirect)}`)
+  }
+
   const signupHref = showInviteSignup && safeRedirect
     ? `/signup?redirectTo=${encodeURIComponent(safeRedirect)}`
     : null

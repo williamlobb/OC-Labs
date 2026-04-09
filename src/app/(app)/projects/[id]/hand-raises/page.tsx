@@ -1,8 +1,14 @@
 import { notFound } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { HandRaiseRequests } from '@/components/projects/HandRaiseRequests'
-import { getAuthenticatedUser, getCachedProject } from '@/lib/data/project-queries'
-import { getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
+import {
+  getAuthenticatedUser,
+  getCachedPlatformRole,
+  getCachedProject,
+  getCachedUserMembership,
+} from '@/lib/data/project-queries'
+import { canMemberRoleReviewHandRaises, isPowerUser } from '@/lib/auth/permissions'
+import type { MemberRole } from '@/types'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -16,17 +22,22 @@ type MemberRow = {
 
 export default async function HandRaisesPage({ params }: PageProps) {
   const { id } = await params
-  const supabase = await createServerSupabaseClient()
-
   const user = await getAuthenticatedUser()
   const project = await getCachedProject(id)
 
   if (!project) notFound()
-  const platformRole = user ? await getPlatformRole(supabase, user.id) : 'user'
-  const canManageMembers = project.owner_id === user?.id || isPowerUser(platformRole)
-  if (!canManageMembers) notFound()
+  const [membership, platformRole] = await Promise.all([
+    user ? getCachedUserMembership(id, user.id) : Promise.resolve(null),
+    user ? getCachedPlatformRole(user.id) : Promise.resolve<'user'>('user'),
+  ])
+  const viewerRole = (membership?.role ?? null) as MemberRole | null
+  const canReviewHandRaises =
+    project.owner_id === user?.id ||
+    canMemberRoleReviewHandRaises(viewerRole) ||
+    isPowerUser(platformRole)
+  if (!canReviewHandRaises) notFound()
 
-  const { data: raisedHands } = await supabase
+  const { data: raisedHands } = await supabaseAdmin
     .from('project_members')
     .select('user_id, joined_at, users(name, profile_photo_url)')
     .eq('project_id', id)
@@ -50,7 +61,7 @@ export default async function HandRaisesPage({ params }: PageProps) {
           Hand Raises
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Approve people who raised their hand to join this project.
+          Review hand raises, assign a role when approving, or deny the request.
         </p>
       </div>
 

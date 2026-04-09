@@ -12,13 +12,13 @@ const TABS = [
 
 interface ProjectTabsProps {
   projectId: string
-  isOwner: boolean
+  canViewHandRaises: boolean
 }
 
-export function ProjectTabs({ projectId, isOwner }: ProjectTabsProps) {
+export function ProjectTabs({ projectId, canViewHandRaises }: ProjectTabsProps) {
   const pathname = usePathname()
   const base = `/projects/${projectId}`
-  const tabs = isOwner
+  const tabs = canViewHandRaises
     ? [...TABS, { label: 'Hand Raises', href: '/hand-raises' }]
     : TABS
 

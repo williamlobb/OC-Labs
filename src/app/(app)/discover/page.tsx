@@ -3,6 +3,7 @@ import { FilterableBoard } from '@/components/board/FilterableBoard'
 import { DiscoverChatPanel } from '@/components/chat/DiscoverChatPanel'
 import { getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 import Link from 'next/link'
+import type { MemberRole } from '@/types'
 
 export default async function DiscoverPage() {
   const supabase = await createServerSupabaseClient()
@@ -27,12 +28,17 @@ export default async function DiscoverPage() {
       .eq('user_id', user?.id ?? ''),
     supabase
       .from('project_members')
-      .select('project_id')
+      .select('project_id, role')
       .eq('user_id', user?.id ?? ''),
   ])
 
   const votedProjectIds = (votes ?? []).map((v: { project_id: string }) => v.project_id)
-  const joinedProjectIds = (memberships ?? []).map((m: { project_id: string }) => m.project_id)
+  const requestedProjectIds = (memberships ?? [])
+    .filter((m: { project_id: string; role: MemberRole }) => m.role === 'interested')
+    .map((m: { project_id: string; role: MemberRole }) => m.project_id)
+  const joinedProjectIds = (memberships ?? [])
+    .filter((m: { project_id: string; role: MemberRole }) => m.role !== 'interested')
+    .map((m: { project_id: string; role: MemberRole }) => m.project_id)
 
   type ProjectRow = typeof projects extends (infer T)[] | null ? T : never
   type ProjectMemberRow = {
@@ -100,6 +106,7 @@ export default async function DiscoverPage() {
       <FilterableBoard
         projects={projectsWithOwner}
         votedProjectIds={votedProjectIds}
+        requestedProjectIds={requestedProjectIds}
         joinedProjectIds={joinedProjectIds}
       />
 
