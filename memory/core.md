@@ -79,6 +79,15 @@ Invite links now preserve redirect intent through login (`redirectTo`) and expos
 ### ADR-023: Invite accept route is idempotent to handle callback pre-application
 The auth callback (`/auth/callback`) applies all pending role invitations by email for every auth event — this is required so GitHub OAuth users (who never visit the accept route) receive their roles. A side-effect is that email-confirmation signup and GitHub OAuth users arrive at `/api/v1/invitations/[token]/accept` with `accepted_at` already set. The accept route now treats this as an idempotent success: if `accepted_at !== null` and the current user's email matches the invitation, it redirects to the correct success destination (`/projects/[id]?success=role_applied` or `/discover?success=role_applied`). Unknown tokens and email mismatches on already-accepted invites still return `invalid_invitation`. Committed `134ad25`, verified in production 2026-04-09.
 
+### E2E Verification: Full invite flow confirmed in production (2026-04-09)
+Live end-to-end test run on https://oclabs.space confirmed the complete invite flow works correctly:
+1. Power user (williamlobb) sends invite from `/admin` → "Invite Platform Role" modal → email delivered via Resend from `noreply@oclabs.space` in <5 seconds.
+2. Email mismatch guard fires correctly: clicking invite link while logged in as a different user redirects to `/discover?error=invitation_email_mismatch`.
+3. Unauthenticated flow: clicking invite link redirects to `/login?redirectTo=/api/v1/invitations/[token]/accept`. Login page shows "Need an account? Create one with this invite" when a valid invite `redirectTo` is detected.
+4. Signup: `/signup` page loads with "Use your invitation email to finish joining OC Labs", accepts name/email/password, creates account and chains through invite acceptance.
+5. On success: user lands on `/discover` as a `User` role — CTA shows "Have an idea?" (not "New project"), confirming role was applied correctly.
+No issues found. All security guards (email match, role gating, one-time token) behaved as designed.
+
 ## Stack
 
 Framework: Next.js 15 App Router

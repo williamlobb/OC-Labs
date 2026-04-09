@@ -52,18 +52,14 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
 
       <div>{children}</div>
 
-      {/* Persistent chat panel — visible across all tabs */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
-        <div className="mx-auto max-w-7xl pointer-events-auto">
-          {isChatMember ? (
+      {/* Persistent chat panel — only visible to project members */}
+      {isChatMember && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pointer-events-none">
+          <div className="mx-auto max-w-7xl pointer-events-auto">
             <ProjectChatPanel key={id} projectId={id} />
-          ) : (
-            <div className="rounded-2xl border border-white/30 bg-white/70 px-4 py-3 text-center text-xs text-zinc-400 shadow-2xl backdrop-blur-xl dark:border-zinc-700/40 dark:bg-zinc-900/70">
-              Join this project to access chat.
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
