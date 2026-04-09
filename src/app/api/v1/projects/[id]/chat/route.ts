@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { canEditProjectContent, getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
+import {
+  PROJECT_CHAT_TIMEOUT_MESSAGE,
+  PROJECT_CHAT_UNAVAILABLE_MESSAGE,
+  toFriendlyProjectChatError,
+} from '@/lib/chat/errors'
 import { trimHistoryToBudget } from '@/lib/chat/trim-history'
 
 export const runtime = 'edge'
@@ -9,10 +14,6 @@ export const maxDuration = 90
 // so the agent can return a clean timeout hint before this route aborts.
 const AGENT_FETCH_TIMEOUT_MS = 55_000
 const CHAT_HISTORY_CHAR_BUDGET = 8_000
-const FRIENDLY_TIMEOUT_MESSAGE =
-  'The project assistant timed out while processing that request. Try narrowing scope (for example: one repository, folder, or file).'
-const FRIENDLY_UNAVAILABLE_MESSAGE =
-  'The project assistant is temporarily unavailable. Please try again in a minute.'
 
 // Normalise URL — strip trailing slash and ensure https. Both issues cause Go's mux
 // to issue a 301 redirect which downgrades POST→GET, producing 405 Method Not Allowed.
@@ -88,7 +89,7 @@ export async function POST(
     if (err instanceof Error && err.name === 'AbortError') {
       return NextResponse.json(
         {
-          error: FRIENDLY_TIMEOUT_MESSAGE,
+          error: PROJECT_CHAT_TIMEOUT_MESSAGE,
         },
         { status: 504 }
       )
@@ -206,37 +207,11 @@ function sanitizeUpstreamError(input: string): string {
 
   if (!text) return ''
 
-  const lower = text.toLowerCase()
-  if (isTimeoutLikeError(lower)) return FRIENDLY_TIMEOUT_MESSAGE
-  if (isUnavailableLikeError(lower)) return FRIENDLY_UNAVAILABLE_MESSAGE
+  const friendly = toFriendlyProjectChatError(text)
+  if (friendly === PROJECT_CHAT_TIMEOUT_MESSAGE) return friendly
+  if (friendly === PROJECT_CHAT_UNAVAILABLE_MESSAGE) return friendly
 
   return text.length > 300 ? `${text.slice(0, 300)}...` : text
-}
-
-function isTimeoutLikeError(message: string): boolean {
-  const timeoutSignals = [
-    'function_invocation_timeout',
-    'context deadline exceeded',
-    'deadline exceeded',
-    'timed out',
-    'timeout',
-    'gateway timeout',
-    'request timed out',
-    'exceeded max duration',
-  ]
-  return timeoutSignals.some((signal) => message.includes(signal))
-}
-
-function isUnavailableLikeError(message: string): boolean {
-  const unavailableSignals = [
-    'service unavailable',
-    'temporarily unavailable',
-    'bad gateway',
-    'upstream unavailable',
-    'upstream connect error',
-    'could not connect',
-  ]
-  return unavailableSignals.some((signal) => message.includes(signal))
 }
 
 function normalizeAgentURL(raw: string): string {

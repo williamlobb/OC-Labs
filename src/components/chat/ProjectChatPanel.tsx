@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Claude } from '@lobehub/icons'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { shouldResetProjectChatSession } from '@/lib/chat/errors'
 import type { ChatMessage } from '@/types'
 import { ProjectChat } from './ProjectChat'
 
@@ -23,7 +24,7 @@ export function ProjectChatPanel({ projectId }: ProjectChatPanelProps) {
   useEffect(() => {
     const storageKey = `${CHAT_STORAGE_PREFIX}${projectId}`
     try {
-      if (messages.length === 0) {
+      if (messages.length === 0 || shouldClearPersistedMessages(messages)) {
         window.localStorage.removeItem(storageKey)
         return
       }
@@ -119,8 +120,19 @@ function readPersistedMessages(projectId: string): ChatMessage[] {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(isChatMessage).slice(-MAX_PERSISTED_MESSAGES)
+    const persisted = parsed.filter(isChatMessage).slice(-MAX_PERSISTED_MESSAGES)
+    return shouldClearPersistedMessages(persisted) ? [] : persisted
   } catch {
     return []
   }
+}
+
+function shouldClearPersistedMessages(messages: ChatMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]
+    if (message.role !== 'assistant') continue
+    return shouldResetProjectChatSession(message.content)
+  }
+
+  return false
 }

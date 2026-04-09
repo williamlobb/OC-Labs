@@ -3,6 +3,11 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils/cn'
+import {
+  PROJECT_CHAT_TIMEOUT_MESSAGE,
+  shouldResetProjectChatSession,
+  toFriendlyProjectChatError,
+} from '@/lib/chat/errors'
 import { useSpinnerVerb } from '@/lib/chat/use-spinner-verb'
 import type { ChatMessage } from '@/types'
 
@@ -17,11 +22,6 @@ function WaitingIndicator({ active }: { active: boolean }) {
     </span>
   )
 }
-
-const FRIENDLY_TIMEOUT_MESSAGE =
-  'The project assistant timed out while processing that request. Try narrowing scope (for example: one repository, folder, or file).'
-const FRIENDLY_UNAVAILABLE_MESSAGE =
-  'The project assistant is temporarily unavailable. Please try again in a minute.'
 
 interface ProjectChatProps {
   projectId: string
@@ -52,9 +52,22 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  function handleResetSession() {
+    if (streaming) return
+    setInput('')
+    updateMessages(() => [])
+    textareaRef.current?.focus()
+  }
+
   async function handleSend() {
     const text = input.trim()
     if (!text || streaming) return
+
+    const shouldStartFresh = shouldAutoStartFreshSession(messages)
+    const historyForRequest = shouldStartFresh ? [] : messages
+    if (shouldStartFresh) {
+      updateMessages(() => [])
+    }
 
     setInput('')
     const userMsg: ChatMessage = {
@@ -85,7 +98,7 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
-          history: messages.map((m) => ({ role: m.role, content: m.content })),
+          history: historyForRequest.map((m) => ({ role: m.role, content: m.content })),
         }),
       })
 
@@ -190,6 +203,21 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
       {/* Input */}
       <div className="py-4">
         <div className="relative flex items-end rounded-lg border border-zinc-200 bg-zinc-50 focus-within:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">
+          <button
+            type="button"
+            onClick={handleResetSession}
+            disabled={streaming || messages.length === 0}
+            className={cn(
+              'absolute bottom-2 left-2 inline-flex h-8 items-center rounded-lg border px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60',
+              (streaming || messages.length === 0)
+                ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
+                : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-700'
+            )}
+            aria-label="Start a new chat session"
+            title="Start a new chat session"
+          >
+            New chat
+          </button>
           <textarea
             ref={textareaRef}
             value={input}
@@ -198,7 +226,7 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
             placeholder="Ask about this project…"
             rows={3}
             disabled={streaming}
-            className="flex-1 resize-none bg-transparent px-3 py-2.5 pr-12 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
+            className="flex-1 resize-none bg-transparent px-3 py-2.5 pl-28 pr-12 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
           />
           <button
             onClick={handleSend}
@@ -235,38 +263,23 @@ async function extractErrorMessage(res: Response): Promise<string> {
     // Fall through to status fallback.
   }
 
-  if (res.status === 504 || res.status === 524) return FRIENDLY_TIMEOUT_MESSAGE
-  if (res.status >= 500) return FRIENDLY_UNAVAILABLE_MESSAGE
+  if (res.status === 504 || res.status === 524) return PROJECT_CHAT_TIMEOUT_MESSAGE
+  if (res.status >= 500) return toFriendlyChatError('service unavailable', res.status)
   return `Request failed (${res.status}).`
 }
 
 function toFriendlyChatError(raw: string, status?: number): string {
-  const text = raw.replace(/\s+/g, ' ').trim()
-  const lower = text.toLowerCase()
+  return toFriendlyProjectChatError(raw, status)
+}
 
-  const timeoutSignals = [
-    'function_invocation_timeout',
-    'context deadline exceeded',
-    'deadline exceeded',
-    'timed out',
-    'timeout',
-    'gateway timeout',
-    'request timed out',
-    'exceeded max duration',
-  ]
-  if (timeoutSignals.some((signal) => lower.includes(signal))) return FRIENDLY_TIMEOUT_MESSAGE
-  if (status === 504 || status === 524) return FRIENDLY_TIMEOUT_MESSAGE
+function findLastAssistantMessage(messages: ChatMessage[]): ChatMessage | undefined {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i].role === 'assistant') return messages[i]
+  }
+  return undefined
+}
 
-  const unavailableSignals = [
-    'service unavailable',
-    'temporarily unavailable',
-    'bad gateway',
-    'upstream unavailable',
-    'upstream connect error',
-    'could not connect',
-  ]
-  if (unavailableSignals.some((signal) => lower.includes(signal))) return FRIENDLY_UNAVAILABLE_MESSAGE
-  if ((status ?? 0) >= 500) return FRIENDLY_UNAVAILABLE_MESSAGE
-
-  return text.length > 240 ? `${text.slice(0, 240)}...` : text
+function shouldAutoStartFreshSession(messages: ChatMessage[]): boolean {
+  const lastAssistant = findLastAssistantMessage(messages)
+  return Boolean(lastAssistant && shouldResetProjectChatSession(lastAssistant.content))
 }
