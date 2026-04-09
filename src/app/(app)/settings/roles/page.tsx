@@ -20,9 +20,9 @@ export default async function RolesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Roles</h1>
+        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Platform Roles</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Manage platform-wide roles. Power users can access settings, admin panels, and all projects.
+          Manage platform-wide roles. Power users can access settings and all projects.
         </p>
       </div>
       <PlatformRolesPanel users={users ?? []} />
