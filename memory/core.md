@@ -43,8 +43,8 @@ When a new OC Labs project is created, `createEpic()` fires asynchronously (neve
 ### ADR-011: Hand raises are owner-approved before joining the team
 `project_members.role='interested'` is treated as a pending join request, not an approved team member. Project owners have a dedicated `/projects/[id]/hand-raises` review tab to approve requests; approval updates role from `interested` to `contributor`. Overview Team lists only approved roles (`owner`, `contributor`, `observer`), so pending requests do not appear as joined members.
 
-### ADR-012: Chat history is session-only, stored in React state
-Chat messages between user and agent live in component state only (ProjectChatPanel.tsx). No persistence to `project_chat_messages` table — that table is kept for future audit but reads/writes are disabled. A "New session" button clears messages. This eliminates the consecutive-user-message normalization bug that arose from stale history, reduces DB I/O, and keeps sessions truly ephemeral. Durable record of work comes from context blocks, updates, and tasks — not chat turns.
+### ADR-012: Project chat is not DB-persisted; history is browser-local per project
+Project chat messages are not persisted to `project_chat_messages` (table remains reserved for future audit). Runtime state is still owned by React, but the panel now restores/saves recent chat history in browser localStorage (keyed per `projectId`, capped to recent messages) for continuity across reloads/tab switches. Durable project record still comes from context blocks, updates, and tasks — not chat turns.
 
 ### ADR-013: Agent eagerness gated by tool description
 The Go agent's `get_project_context` tool has a reactive description (not imperative "always call first"). System prompt says "fetch only when user's request requires it." This prevents verbose context dumps on every greeting while preserving proactive fetching when needed (e.g., "what's the status?"). See `agent/tools_project.go:13` and `agent/main.go:45`.
@@ -69,6 +69,15 @@ After repo-discovery tooling was added, project chat could exceed model input/to
 
 ### ADR-020: Project chat now normalizes platform errors and routes repo-read prompts to Sonnet 4.5
 Project chat no longer surfaces raw upstream platform errors (e.g. `FUNCTION_INVOCATION_TIMEOUT`) directly to users. Both the Next.js project chat route and client-side error parser now map timeout/unavailable signatures to friendly guidance. The Go agent now uses intent-based model routing: repo/codebase-reading prompts default to `claude-sonnet-4-5`, general chat defaults to `claude-sonnet-4-6`, and invalid-model failures fall back to the general model. Routing can be overridden with `AGENT_MODEL_GENERAL` and `AGENT_MODEL_REPO_READ`.
+
+### ADR-021: Project chat timeout budgets and repo tooling are tuned for reliability
+Project chat route timeout budget is intentionally higher than agent runtime (`maxDuration=90s`, upstream fetch timeout `55s`, agent run timeout `52s`) so timeout handling is deterministic and user-facing errors remain friendly. Agent tool HTTP calls now share a bounded timeout client (`12s`) and GitHub repo tree reads are cached in-memory for short windows (`2m`) to reduce repeated recursive tree fetch cost. Prompt guidance also treats explicit plan confirmation as execution intent (create tasks immediately, avoid re-running repo discovery unless asked).
+
+### ADR-022: Invitation onboarding supports GitHub sign-in and invite-scoped password signup
+Invite links now preserve redirect intent through login (`redirectTo`) and expose two valid paths: GitHub OAuth or creating an email/password account. Public self-signup remains disabled; `/signup` is only accessible with a valid invitation redirect context. Signup action verifies invitation token validity, pending status, and strict email match before creating credentials, then redirects back into invitation acceptance flow.
+
+### ADR-023: Invite accept route is idempotent to handle callback pre-application
+The auth callback (`/auth/callback`) applies all pending role invitations by email for every auth event — this is required so GitHub OAuth users (who never visit the accept route) receive their roles. A side-effect is that email-confirmation signup and GitHub OAuth users arrive at `/api/v1/invitations/[token]/accept` with `accepted_at` already set. The accept route now treats this as an idempotent success: if `accepted_at !== null` and the current user's email matches the invitation, it redirects to the correct success destination (`/projects/[id]?success=role_applied` or `/discover?success=role_applied`). Unknown tokens and email mismatches on already-accepted invites still return `invalid_invitation`. Committed `134ad25`, verified in production 2026-04-09.
 
 ## Stack
 
