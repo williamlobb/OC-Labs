@@ -24,7 +24,23 @@ export async function GET(
     .eq('token', token)
     .maybeSingle()
 
-  if (!invitation || invitation.accepted_at !== null) {
+  if (!invitation) {
+    return NextResponse.redirect(new URL('/discover?error=invalid_invitation', request.url))
+  }
+
+  // Idempotent path: the auth callback pre-applies roles on email-confirmation
+  // and GitHub OAuth flows, marking accepted_at before redirecting here.
+  // If this user's email matches, the invite was legitimately accepted — send
+  // them to the success destination rather than surfacing an error.
+  if (invitation.accepted_at !== null) {
+    if (emailsEqual(invitation.email, user.email)) {
+      if (invitation.project_id) {
+        return NextResponse.redirect(
+          new URL(`/projects/${invitation.project_id}?success=role_applied`, request.url)
+        )
+      }
+      return NextResponse.redirect(new URL('/discover?success=role_applied', request.url))
+    }
     return NextResponse.redirect(new URL('/discover?error=invalid_invitation', request.url))
   }
 
