@@ -59,7 +59,7 @@ export async function dmOwnerRaisedHand(
   raisedByName: string,
   projectTitle: string
 ): Promise<void> {
-  const webhookUrl = process.env.SLACK_WEBHOOK_HAND_RAISES ?? process.env.SLACK_WEBHOOK_PROJECTS
+  const webhookUrl = process.env.SLACK_WEBHOOK_HAND_RAISES
   if (!webhookUrl) return
 
   await postToWebhook(webhookUrl, {
