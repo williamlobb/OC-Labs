@@ -53,6 +53,7 @@ const validFields = {
   name: 'Alice Smith',
   email: 'alice@example.com',
   password: 'secure123',
+  passwordConfirm: 'secure123',
   redirectTo: '/api/v1/invitations/test-token/accept',
 }
 
@@ -97,6 +98,7 @@ describe('signupAction', () => {
         name: '',
         email: 'a@example.com',
         password: 'pass123',
+        passwordConfirm: 'pass123',
         redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Name is required.')
@@ -107,6 +109,7 @@ describe('signupAction', () => {
         name: '   ',
         email: 'a@example.com',
         password: 'pass123',
+        passwordConfirm: 'pass123',
         redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Name is required.')
@@ -117,6 +120,7 @@ describe('signupAction', () => {
         name: 'Alice',
         email: '',
         password: 'pass123',
+        passwordConfirm: 'pass123',
         redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Email is required.')
@@ -127,6 +131,7 @@ describe('signupAction', () => {
         name: 'Alice',
         email: 'not-an-email',
         password: 'pass123',
+        passwordConfirm: 'pass123',
         redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Please enter a valid email address.')
@@ -137,6 +142,7 @@ describe('signupAction', () => {
         name: 'Alice',
         email: 'a@example.com',
         password: '',
+        passwordConfirm: '',
         redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Password must be at least 6 characters.')
@@ -147,9 +153,32 @@ describe('signupAction', () => {
         name: 'Alice',
         email: 'a@example.com',
         password: '12345',
+        passwordConfirm: '12345',
         redirectTo: validFields.redirectTo,
       }))
       expect(result.error).toBe('Password must be at least 6 characters.')
+    })
+
+    it('returns an error when password confirmation is missing', async () => {
+      const result = await signupAction(null, makeFormData({
+        name: 'Alice',
+        email: 'a@example.com',
+        password: 'pass123',
+        passwordConfirm: '',
+        redirectTo: validFields.redirectTo,
+      }))
+      expect(result.error).toBe('Please confirm your password.')
+    })
+
+    it('returns an error when password confirmation does not match', async () => {
+      const result = await signupAction(null, makeFormData({
+        name: 'Alice',
+        email: 'a@example.com',
+        password: 'pass123',
+        passwordConfirm: 'pass124',
+        redirectTo: validFields.redirectTo,
+      }))
+      expect(result.error).toBe('Passwords do not match.')
     })
 
     it('does not call Supabase when client-side validation fails', async () => {
@@ -159,6 +188,7 @@ describe('signupAction', () => {
           name: '',
           email: '',
           password: '',
+          passwordConfirm: '',
           redirectTo: validFields.redirectTo,
         })
       )

@@ -13,9 +13,9 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirectTo', `/api/v1/invitations/${token}/accept`)
-    return NextResponse.redirect(loginUrl)
+    const signupUrl = new URL('/signup', request.url)
+    signupUrl.searchParams.set('redirectTo', `/api/v1/invitations/${token}/accept`)
+    return NextResponse.redirect(signupUrl)
   }
 
   const { data: invitation } = await supabaseAdmin
