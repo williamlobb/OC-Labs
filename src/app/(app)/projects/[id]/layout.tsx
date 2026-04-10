@@ -3,7 +3,11 @@ import { ProjectHeader } from '@/components/projects/ProjectHeader'
 import { ProjectActions } from '@/components/projects/ProjectActions'
 import { ProjectTabs } from '@/components/projects/ProjectTabs'
 import { ProjectChatPanel } from '@/components/chat/ProjectChatPanel'
-import { canMemberRoleReviewHandRaises, isPowerUser } from '@/lib/auth/permissions'
+import {
+  canMemberRoleEditProjectContent,
+  canMemberRoleReviewHandRaises,
+  isPowerUser,
+} from '@/lib/auth/permissions'
 import {
   getAuthenticatedUser,
   getCachedPlatformRole,
@@ -38,7 +42,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps) {
   const membershipRole = (userMembership?.role ?? null) as MemberRole | null
   const hasVoted = !!userVote
   const hasRaisedHand = membershipRole === 'interested'
-  const isChatMember = canManageProject || !!userMembership
+  const isChatMember = canManageProject || canMemberRoleEditProjectContent(membershipRole)
   const canViewHandRaises = isOwner || canMemberRoleReviewHandRaises(membershipRole)
 
   return (
