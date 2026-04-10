@@ -322,7 +322,7 @@ export function IntegrationsPanel({
       <JiraCard
         configured={jiraConfigured}
         baseUrl={jiraBaseUrl}
-        projectKey={jiraProjectKey}
+        projectKey=https://omniacollective.atlassian.net/jira/software/projects/OCL/boards/133/timeline
         lastSync={jiraLastSync}
       />
       <GitHubCard configured={githubConfigured} org={githubOrg} />
