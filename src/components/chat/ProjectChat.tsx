@@ -62,6 +62,15 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
     textareaRef.current?.focus()
   }
 
+  function handleRequestResetSession() {
+    if (streaming || messages.length === 0) return
+    const confirmed = window.confirm(
+      'Are you sure you want to start a new session? This will clear the current conversation.'
+    )
+    if (!confirmed) return
+    handleResetSession()
+  }
+
   async function handleSend() {
     const text = input.trim()
     if (!text || streaming) return
@@ -208,7 +217,7 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
         <div className="relative flex items-end rounded-lg border border-zinc-200 bg-zinc-50 focus-within:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">
           <button
             type="button"
-            onClick={handleResetSession}
+            onClick={handleRequestResetSession}
             disabled={streaming || messages.length === 0}
             className={cn(
               'absolute bottom-2 right-12 inline-flex h-8 items-center rounded-lg border px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60',
