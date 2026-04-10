@@ -16,9 +16,12 @@ function WaitingIndicator({ active }: { active: boolean }) {
   return (
     <span
       aria-live="polite"
-      className="inline-block leading-5 min-h-[1.25rem] text-zinc-400"
+      className="inline-flex min-h-[1.25rem] items-baseline gap-0.5 leading-5"
     >
-      {verb}\u2026
+      <span className="bg-[linear-gradient(110deg,#a1a1aa_35%,#e4e4e7_50%,#a1a1aa_65%)] bg-[length:220%_100%] bg-clip-text text-transparent motion-safe:animate-[chat-verb-shimmer_1.6s_linear_infinite] dark:bg-[linear-gradient(110deg,#71717a_35%,#e4e4e7_50%,#71717a_65%)]">
+        {verb}
+      </span>
+      <span className="text-zinc-400">...</span>
     </span>
   )
 }

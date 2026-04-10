@@ -53,3 +53,12 @@ body {
     transform: translateY(2px);
   }
 }
+
+@keyframes chat-verb-shimmer {
+  0% {
+    background-position: 220% 0;
+  }
+  100% {
+    background-position: -220% 0;
+  }
+}
