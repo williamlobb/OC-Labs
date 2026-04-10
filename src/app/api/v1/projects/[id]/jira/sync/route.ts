@@ -22,7 +22,7 @@ interface FriendlyJiraMessage {
 }
 
 const UNASSIGNED_TASKS_CONFIRMATION_CODE = 'UNASSIGNED_TASKS_CONFIRMATION_REQUIRED'
-const SUPPORTED_EPIC_CHILD_ISSUE_TYPE = 'task'
+const TASK_ISSUE_TYPE = 'Task'
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
@@ -62,7 +62,7 @@ function toFriendlyJiraMessage(
     )
   ) {
     return {
-      userMessage: 'Jira rejected the Epic link for this task type. Set JIRA_ISSUE_TYPE to Task and retry sync.',
+      userMessage: 'Jira rejected Epic parent linkage for this task issue type. Please check Jira issue hierarchy settings.',
       technicalDetails: message,
     }
   }
@@ -114,18 +114,6 @@ function toFriendlyJiraMessage(
   return {
     userMessage: 'Jira sync hit an unexpected issue. Please try again.',
     technicalDetails: message,
-  }
-}
-
-function getIssueTypeCompatibilityError(jiraIssueType: string): FriendlyJiraMessage | null {
-  if (jiraIssueType.trim().toLowerCase() === SUPPORTED_EPIC_CHILD_ISSUE_TYPE) {
-    return null
-  }
-
-  const technicalDetails = `JIRA_ISSUE_TYPE=${jiraIssueType} is incompatible with Epic parent linkage. Use Task.`
-  return {
-    userMessage: 'Jira issue type must be Task for Epic-linked sync. Update JIRA_ISSUE_TYPE and try again.',
-    technicalDetails,
   }
 }
 
@@ -237,19 +225,6 @@ export async function POST(
   if (tasksError) return NextResponse.json({ error: tasksError.message }, { status: 500 })
 
   const jiraProjectKey = process.env.JIRA_PROJECT_KEY!.trim()
-  const jiraIssueType = process.env.JIRA_ISSUE_TYPE?.trim() || 'Task'
-  const compatibilityError = getIssueTypeCompatibilityError(jiraIssueType)
-  if (compatibilityError) {
-    return NextResponse.json(
-      {
-        error: compatibilityError.userMessage,
-        message: compatibilityError.userMessage,
-        technicalDetails: compatibilityError.technicalDetails,
-      },
-      { status: 500 }
-    )
-  }
-
   const taskRows = (tasks ?? []) as TaskRow[]
   const unassignedUnsyncedTasks = taskRows.filter(
     (task) => !task.jira_issue_key?.trim() && !task.assignee_id
@@ -293,6 +268,7 @@ export async function POST(
   let failed = 0
   const errors: string[] = []
   const technicalErrors: string[] = []
+  const warningMessages: string[] = []
 
   for (const task of taskRows) {
     if (task.jira_issue_key?.trim()) {
@@ -305,7 +281,7 @@ export async function POST(
         summary: buildIssueSummary(project.title, task.title),
         description: buildIssueDescription(project.id, project.title, task.title, task.body),
         projectKey: jiraProjectKey,
-        issueType: jiraIssueType,
+        issueType: TASK_ISSUE_TYPE,
         epicKey,
       })
 
@@ -341,9 +317,11 @@ export async function POST(
     }
   }
 
-  const warning = allowUnassigned && unassignedUnsyncedTasks.length > 0
-    ? `Included ${unassignedUnsyncedTasks.length} unassigned task${unassignedUnsyncedTasks.length === 1 ? '' : 's'} because you confirmed sync anyway.`
-    : undefined
+  if (allowUnassigned && unassignedUnsyncedTasks.length > 0) {
+    warningMessages.push(
+      `Included ${unassignedUnsyncedTasks.length} unassigned task${unassignedUnsyncedTasks.length === 1 ? '' : 's'} because you confirmed sync anyway.`
+    )
+  }
 
   const message = failed > 0
     ? `Jira sync finished with some issues: ${created} created, ${skipped} skipped, ${failed} failed.`
@@ -355,7 +333,7 @@ export async function POST(
     failed,
     errors,
     technicalErrors,
-    warning,
+    warning: warningMessages.length > 0 ? warningMessages.join(' ') : undefined,
     message,
   })
 }

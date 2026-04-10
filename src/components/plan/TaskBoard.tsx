@@ -90,6 +90,7 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
   const [decomposing, setDecomposing] = useState(false)
   const [syncingToJira, setSyncingToJira] = useState(false)
   const [jiraSyncMessage, setJiraSyncMessage] = useState<JiraSyncFeedback | null>(null)
+  const [jiraSyncToastVisible, setJiraSyncToastVisible] = useState(false)
   const [jiraUnassignedConfirmation, setJiraUnassignedConfirmation] = useState<JiraUnassignedConfirmation | null>(null)
   const [readyOnly, setReadyOnly] = useState(false)
   const overdueBlockedTasks = getOverdueBlockedTasks(tasks)
@@ -237,6 +238,7 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
     setSyncingToJira(true)
     if (!allowUnassigned) {
       setJiraSyncMessage(null)
+      setJiraSyncToastVisible(false)
     }
 
     try {
@@ -284,6 +286,7 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
           tone: 'error',
           technicalDetails: getTechnicalDetails(payload),
         })
+        setJiraSyncToastVisible(true)
         return
       }
 
@@ -303,6 +306,7 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         tone: failed > 0 ? 'warning' : 'success',
         technicalDetails: getTechnicalDetails(payload),
       })
+      setJiraSyncToastVisible(true)
       setJiraUnassignedConfirmation(null)
     } catch {
       setJiraSyncMessage({
@@ -311,6 +315,7 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         tone: 'error',
         technicalDetails: [],
       })
+      setJiraSyncToastVisible(true)
     } finally {
       setSyncingToJira(false)
     }
@@ -412,10 +417,22 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         )}
       </div>
 
-      {jiraSyncMessage && (
+      {jiraSyncMessage && !jiraSyncToastVisible && (
+        <div className="fixed bottom-24 right-4 z-50">
+          <button
+            type="button"
+            onClick={() => setJiraSyncToastVisible(true)}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Show Jira notice
+          </button>
+        </div>
+      )}
+
+      {jiraSyncMessage && jiraSyncToastVisible && (
         <section
           className={cn(
-            'rounded-lg border p-4',
+            'fixed bottom-24 right-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border p-3 shadow-lg backdrop-blur-sm',
             jiraSyncMessage.tone === 'error'
               ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-100'
               : jiraSyncMessage.tone === 'warning'
@@ -427,12 +444,12 @@ export function TaskBoard({ projectId, initialTasks, teamMembers, canEdit, viewe
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-sm font-semibold">{jiraSyncMessage.title}</p>
-              <p className="text-sm">{jiraSyncMessage.text}</p>
+              <p className="text-xs font-semibold">{jiraSyncMessage.title}</p>
+              <p className="text-xs">{jiraSyncMessage.text}</p>
             </div>
             <button
               type="button"
-              onClick={() => setJiraSyncMessage(null)}
+              onClick={() => setJiraSyncToastVisible(false)}
               className="shrink-0 rounded border border-current/20 px-2 py-1 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
               aria-label="Dismiss Jira sync feedback"
             >

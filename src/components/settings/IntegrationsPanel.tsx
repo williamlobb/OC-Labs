@@ -148,7 +148,6 @@ interface Props {
   jiraConfigured: boolean
   jiraBaseUrl: string | null
   jiraProjectKey: string | null
-  jiraIssueType: string | null
   jiraLastSync: string | null
   githubConfigured: boolean
   githubOrg: string | null
@@ -156,18 +155,16 @@ interface Props {
 
 // --- Cards ---
 
-function JiraCard({ configured, baseUrl, projectKey, issueType, lastSync }: {
+function JiraCard({ configured, baseUrl, projectKey, lastSync }: {
   configured: boolean
   baseUrl: string | null
   projectKey: string | null
-  issueType: string | null
   lastSync: string | null
 }) {
   const spaceUrl = baseUrl && projectKey
     ? `${baseUrl}/jira/software/projects/${projectKey}/boards`
     : null
-  const normalizedIssueType = issueType?.trim() || 'Task'
-  const issueTypeCompatible = normalizedIssueType.toLowerCase() === 'task'
+  const normalizedIssueType = 'Task (enforced)'
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 overflow-hidden">
@@ -195,14 +192,6 @@ function JiraCard({ configured, baseUrl, projectKey, issueType, lastSync }: {
             <MetaRow label="Project key">{projectKey}</MetaRow>
           )}
           <MetaRow label="Issue type">{normalizedIssueType}</MetaRow>
-          {!issueTypeCompatible && (
-            <p
-              role="alert"
-              className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-100"
-            >
-              Jira sync requires `JIRA_ISSUE_TYPE=Task` for Epic-linked task creation.
-            </p>
-          )}
           {lastSync ? (
             <MetaRow label="Last sync">{relativeTime(lastSync)}</MetaRow>
           ) : (
@@ -324,7 +313,6 @@ export function IntegrationsPanel({
   jiraConfigured,
   jiraBaseUrl,
   jiraProjectKey,
-  jiraIssueType,
   jiraLastSync,
   githubConfigured,
   githubOrg,
@@ -335,7 +323,6 @@ export function IntegrationsPanel({
         configured={jiraConfigured}
         baseUrl={jiraBaseUrl}
         projectKey={jiraProjectKey}
-        issueType={jiraIssueType}
         lastSync={jiraLastSync}
       />
       <GitHubCard configured={githubConfigured} org={githubOrg} />

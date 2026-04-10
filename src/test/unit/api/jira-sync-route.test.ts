@@ -178,7 +178,7 @@ describe('POST /api/v1/projects/[id]/jira/sync', () => {
     expect(mockCreateIssue).toHaveBeenCalledTimes(1)
   })
 
-  it('fails fast when JIRA_ISSUE_TYPE is incompatible with Epic parent linkage', async () => {
+  it('always uses Task for epic-linked card creation, even if env drifts', async () => {
     process.env.JIRA_ISSUE_TYPE = 'Epic'
     setupSupabaseData(
       { id: 'proj-1', title: 'Roadmap', jira_epic_key: 'OC-EPIC-1' },
@@ -196,11 +196,14 @@ describe('POST /api/v1/projects/[id]/jira/sync', () => {
     const res = await POST(makeRequest(), { params })
     const payload = await res.json()
 
-    expect(res.status).toBe(500)
-    expect(payload.error).toMatch(/must be task/i)
-    expect(payload.technicalDetails).toMatch(/JIRA_ISSUE_TYPE=Epic/i)
-    expect(mockCreateEpic).not.toHaveBeenCalled()
-    expect(mockCreateIssue).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect(payload).toMatchObject({
+      created: 1,
+      skipped: 0,
+      failed: 0,
+    })
+    expect(mockCreateIssue).toHaveBeenCalledTimes(1)
+    expect(mockCreateIssue.mock.calls[0]?.[0]).toMatchObject({ issueType: 'Task' })
   })
 
   it('returns friendly copy for Jira parent-link conflicts', async () => {
@@ -228,7 +231,7 @@ describe('POST /api/v1/projects/[id]/jira/sync', () => {
     expect(res.status).toBe(200)
     expect(payload.failed).toBe(1)
     expect(payload.errors).toEqual([
-      expect.stringMatching(/set JIRA_ISSUE_TYPE to Task/i),
+      expect.stringMatching(/rejected Epic parent linkage/i),
     ])
     expect(payload.technicalErrors).toEqual([
       expect.stringMatching(/parent issue type conflict/i),

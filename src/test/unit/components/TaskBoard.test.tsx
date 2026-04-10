@@ -156,7 +156,7 @@ describe('TaskBoard Jira sync flow', () => {
     expect(init?.body).toBe(JSON.stringify({ allowUnassigned: true }))
   })
 
-  it('keeps sync feedback visible until dismissed manually', async () => {
+  it('keeps sync feedback visible until dismissed manually and allows reopening', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -190,6 +190,9 @@ describe('TaskBoard Jira sync flow', () => {
 
     await user.click(screen.getByRole('button', { name: /dismiss jira sync feedback/i }))
     expect(screen.queryByText(/jira sync completed/i)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /show jira notice/i }))
+    expect(screen.getByText(/jira sync completed/i)).toBeInTheDocument()
   })
 })
 

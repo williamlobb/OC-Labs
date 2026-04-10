@@ -9,7 +9,6 @@ describe('IntegrationsPanel Jira config visibility', () => {
         jiraConfigured
         jiraBaseUrl="https://jira.example.com"
         jiraProjectKey="OC"
-        jiraIssueType="Task"
         jiraLastSync={null}
         githubConfigured={false}
         githubOrg={null}
@@ -17,22 +16,21 @@ describe('IntegrationsPanel Jira config visibility', () => {
     )
 
     expect(screen.getByText('Issue type')).toBeInTheDocument()
-    expect(screen.getByText('Task')).toBeInTheDocument()
+    expect(screen.getByText('Task (enforced)')).toBeInTheDocument()
   })
 
-  it('shows warning when Jira issue type is incompatible with Epic linkage', () => {
+  it('does not show compatibility warning because issue type is enforced', () => {
     render(
       <IntegrationsPanel
         jiraConfigured
         jiraBaseUrl="https://jira.example.com"
         jiraProjectKey="OC"
-        jiraIssueType="Epic"
         jiraLastSync={null}
         githubConfigured={false}
         githubOrg={null}
       />
     )
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/JIRA_ISSUE_TYPE=Task/i)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
