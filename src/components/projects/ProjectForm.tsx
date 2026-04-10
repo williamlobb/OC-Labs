@@ -27,6 +27,12 @@ function isValidUrl(value: string): boolean {
   }
 }
 
+function isDeleteConfirmationValid(input: string, projectTitle: string): boolean {
+  const normalizedInput = input.trim().toLocaleLowerCase()
+  const normalizedTitle = projectTitle.trim().toLocaleLowerCase()
+  return normalizedInput === 'delete' || (Boolean(normalizedTitle) && normalizedInput === normalizedTitle)
+}
+
 export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
   const router = useRouter()
   const [title, setTitle] = useState(initial?.title ?? '')
@@ -40,6 +46,14 @@ export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const projectTitle = initial?.title?.trim() ?? ''
+  const canDelete =
+    mode === 'edit'
+    && Boolean(projectId)
+    && isDeleteConfirmationValid(deleteConfirmation, projectTitle)
 
   function validate(): boolean {
     const next: FormErrors = {}
@@ -117,6 +131,42 @@ export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
       setServerError('Network error. Please try again.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleDeleteProject() {
+    if (mode !== 'edit' || !projectId || deleting) return
+
+    const confirmation = deleteConfirmation.trim()
+    if (!isDeleteConfirmationValid(confirmation, projectTitle)) {
+      setDeleteError(`Type DELETE or the exact project name (${projectTitle}) to confirm.`)
+      return
+    }
+
+    if (!window.confirm('Delete this project permanently? This cannot be undone.')) return
+
+    setDeleting(true)
+    setDeleteError(null)
+
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation }),
+      })
+
+      if (!res.ok && res.status !== 204) {
+        const body = await res.json().catch(() => ({}))
+        setDeleteError(body.error ?? 'Unable to delete project.')
+        return
+      }
+
+      router.push('/discover')
+      router.refresh()
+    } catch {
+      setDeleteError('Network error. Please try again.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -275,7 +325,7 @@ export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || deleting}
           className="rounded-lg bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           {submitting ? 'Saving…' : mode === 'create' ? 'Create project' : 'Save changes'}
@@ -288,6 +338,47 @@ export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
           Cancel
         </button>
       </div>
+
+      {mode === 'edit' && projectId && (
+        <section className="rounded-lg border border-red-200 bg-red-50/50 p-4 dark:border-red-900/50 dark:bg-red-950/30">
+          <h2 className="text-sm font-semibold text-red-700 dark:text-red-300">Danger zone</h2>
+          <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/90">
+            Delete this project permanently. Type <strong>DELETE</strong> or the exact project name and press Enter.
+          </p>
+          {projectTitle && (
+            <p className="mt-1 text-xs text-red-700/90 dark:text-red-300/90">
+              Project name: <strong>{projectTitle}</strong>
+            </p>
+          )}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="text"
+              value={deleteConfirmation}
+              onChange={(e) => {
+                setDeleteConfirmation(e.target.value)
+                if (deleteError) setDeleteError(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleDeleteProject()
+                }
+              }}
+              placeholder={projectTitle ? `Type DELETE or ${projectTitle}` : 'Type DELETE to confirm'}
+              className="flex-1 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-red-400 focus:outline-none dark:border-red-900/70 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+            <button
+              type="button"
+              onClick={() => void handleDeleteProject()}
+              disabled={!canDelete || deleting || submitting}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleting ? 'Deleting…' : 'Delete project'}
+            </button>
+          </div>
+          {deleteError && <p className="mt-2 text-xs text-red-700 dark:text-red-300">{deleteError}</p>}
+        </section>
+      )}
     </form>
   )
 }

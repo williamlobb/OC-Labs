@@ -57,7 +57,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params
@@ -68,12 +68,51 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('id, title')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (projectError) {
+    return NextResponse.json({ error: projectError.message }, { status: 500 })
+  }
+
+  if (!project) {
+    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  }
+
   const allowed = await canDeleteProject(supabase, user.id, id)
   if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  await supabase.from('projects').delete().eq('id', id)
+  let body: Record<string, unknown> = {}
+  try {
+    body = await req.json()
+  } catch {
+    // Body is required for destructive confirmation.
+  }
+
+  const confirmation = typeof body.confirmation === 'string' ? body.confirmation.trim() : ''
+  const normalizedConfirmation = confirmation.toLocaleLowerCase()
+  const projectTitle = typeof project.title === 'string' ? project.title.trim() : ''
+  const normalizedProjectTitle = projectTitle.toLocaleLowerCase()
+
+  if (!confirmation || (normalizedConfirmation !== 'delete' && normalizedConfirmation !== normalizedProjectTitle)) {
+    return NextResponse.json(
+      {
+        error: 'Type DELETE or the exact project name to confirm deletion.',
+      },
+      { status: 400 }
+    )
+  }
+
+  const { error: deleteError } = await supabase.from('projects').delete().eq('id', id)
+  if (deleteError) {
+    const status = deleteError.code === '42501' ? 403 : 500
+    return NextResponse.json({ error: deleteError.message }, { status })
+  }
 
   return new NextResponse(null, { status: 204 })
 }
