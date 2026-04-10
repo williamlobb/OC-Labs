@@ -10,6 +10,7 @@ interface ProjectFormProps {
   initial?: Partial<Project>
   mode: 'create' | 'edit'
   projectId?: string
+  isPowerUser?: boolean
 }
 
 interface FormErrors {
@@ -33,7 +34,7 @@ function isDeleteConfirmationValid(input: string, projectTitle: string): boolean
   return normalizedInput === 'delete' || (Boolean(normalizedTitle) && normalizedInput === normalizedTitle)
 }
 
-export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
+export function ProjectForm({ initial, mode, projectId, isPowerUser = false }: ProjectFormProps) {
   const router = useRouter()
   const [title, setTitle] = useState(initial?.title ?? '')
   const [summary, setSummary] = useState(initial?.summary ?? '')
@@ -54,6 +55,7 @@ export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
     mode === 'edit'
     && Boolean(projectId)
     && isDeleteConfirmationValid(deleteConfirmation, projectTitle)
+  const showStatusPicker = mode === 'edit' || isPowerUser
 
   function validate(): boolean {
     const next: FormErrors = {}
@@ -100,7 +102,7 @@ export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
     const payload = {
       title: title.trim(),
       summary: summary.trim() || undefined,
-      status,
+      status: showStatusPicker ? status : 'Idea',
       notion_url: notionUrl.trim() || undefined,
       skills_needed: skills,
       github_repos: repos,
@@ -206,20 +208,26 @@ export function ProjectForm({ initial, mode, projectId }: ProjectFormProps) {
       </div>
 
       {/* Status */}
-      <div>
-        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          Status
-        </label>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-          className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-        >
-          {ALL_STATUSES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
+      {showStatusPicker ? (
+        <div>
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            Status
+          </label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-zinc-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          >
+            {ALL_STATUSES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
+          Submissions start as <span className="font-medium">Idea</span> and stay private until a power user approves them.
+        </div>
+      )}
 
       {/* Skills needed */}
       <div>

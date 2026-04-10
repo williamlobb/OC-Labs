@@ -88,14 +88,29 @@ Server-side permissions already allowed `power_user` edits, but project UI gates
 ### ADR-026: Update/context edits and deletes are author-owned (with RLS enforcement)
 Project updates and context blocks now follow strict ownership for mutation: users can edit/delete only rows they authored; they cannot modify or remove other members' content. This applies consistently in API handlers and UI controls (Edit/Delete actions render only for self-authored items). Database RLS now enforces the same rule as a backstop (`update own`/`delete own` policies on `updates` and `context_blocks`) while insert permissions remain project-role based. Ref commit on `main`: `c74c8a6` (2026-04-09); migration `supabase/migrations/012_author_owned_content_mutations.sql` applied to linked remote.
 
-### ADR-027: Jira sync now guarantees epic linkage and requires assignees
-Task sync to Jira (`POST /api/v1/projects/[id]/jira/sync`) now enforces that every unsynced task has an `assignee_id` before pushing; otherwise it fails fast with a clear 400 error listing unassigned tasks. The same route now auto-creates and persists `projects.jira_epic_key` when missing (using `createEpic` + `supabaseAdmin` update) before creating child issues, so legacy projects still sync under a single project epic. Plan UI feedback for sync outcomes is now a temporary bottom-right toast (auto-dismiss ~5s) instead of persistent inline text. Ref commit on `main`: `109567b` (2026-04-09).
+### ADR-027: Jira sync guarantees epic linkage with explicit unassigned confirmation
+Task sync to Jira (`POST /api/v1/projects/[id]/jira/sync`) auto-creates and persists `projects.jira_epic_key` when missing (using `createEpic` + `supabaseAdmin` update) before creating child issues, so legacy projects still sync under a single project epic. Unsynced unassigned tasks trigger an explicit confirmation flow (`UNASSIGNED_TASKS_CONFIRMATION_REQUIRED`) instead of hard-failing; sync proceeds only when caller confirms `allowUnassigned=true`. Ref commits on `main`: `109567b`, `3b86bc4` (2026-04-10).
 
 ### ADR-028: Project chat failures auto-reset session state and expose manual reset control
 Project chat now treats timeout/unavailable responses as session-break conditions instead of normal history turns. On these failures, browser-local chat persistence is cleared (failed threads do not survive refresh), the next send auto-starts with empty history, and the composer includes a persistent, low-noise `New chat` button (bottom-left in the prompt bar) for explicit resets at any time. Timeout/unavailable detection and friendly copy are centralized in `src/lib/chat/errors.ts` and reused by both route and client handlers. Ref commit on `main`: `e6d6e38` (2026-04-09).
 
 ### ADR-029: Hand-raise requests are idempotent, reviewer-scoped, and notify only once per user/project
 `POST /api/v1/projects/[id]/raise-hand` is now idempotent "request join" (no toggle). `DELETE /api/v1/projects/[id]/raise-hand` explicitly withdraws a pending request. Repeat presses while already interested do not create duplicate requests. Owner Slack notification is persisted as one-time per `(project_id, user_id)` via `project_hand_raise_notifications`; re-raise after withdraw does not emit a second notification. Hand-raise review visibility is scoped to project owner and project `tech_lead`; reviewers can approve with role assignment (`contributor`, `observer`, `tech_lead`) or deny. Hand-raise Slack routing is private-only via `SLACK_WEBHOOK_HAND_RAISES` (no fallback to `SLACK_WEBHOOK_PROJECTS`).
+
+### ADR-030: Jira task issue type is hard-enforced to Task to prevent config drift
+Planning decision (2026-04-10): OC Labs Jira sync always creates epic-linked task cards with Jira issue type `Task`, regardless of `JIRA_ISSUE_TYPE` env value. This removes environment drift risk and keeps task creation reliable over long-term operations while preserving Epic creation as its own lane.
+
+### ADR-032: Jira sync feedback uses compact bottom-right persistent toast
+Plan UI sync feedback is now a compact fixed toast in the bottom-right, dismissible but not auto-cleared from state. Dismiss hides the toast, and a `Show Jira notice` control can reopen the same message (including technical details) for later review. Ref commit on `main`: `3b86bc4` (2026-04-10).
+
+### ADR-033: Project deletion requires explicit typed confirmation in edit danger zone
+Project deletion is now owner/power-user accessible from the project edit page via a dedicated "Danger zone" section. Deletion requires typing either `DELETE` or the exact project title, and supports Enter-to-confirm UX plus a final browser confirm dialog. The delete API (`DELETE /api/v1/projects/[id]`) now enforces the same typed confirmation server-side after auth + authorization checks, returning clear 4xx/5xx errors instead of silent failure. Ref commit on `main`: `d141559` (2026-04-10).
+
+### ADR-034: Top-nav Settings link is visible only to power users
+The global header tab for `/settings` is now role-gated in `src/app/(app)/layout.tsx` using platform role lookup (`getPlatformRole` + `isPowerUser`). Non-power users no longer see the Settings tab in top navigation, while settings route-level authorization remains enforced within settings pages.
+
+### ADR-031: Task write permissions align across app RBAC, RLS, and API errors
+Task writes now have parity for `power_user` and project member roles `owner|contributor|tech_lead` end-to-end. Database policy moved from legacy `FOR ALL "write tasks"` to explicit `INSERT`/`UPDATE`/`DELETE` policies with `WITH CHECK` scope enforcement (migration `supabase/migrations/20260410095000_tasks_rbac_parity.sql`). API task routes now map permission-denied DB failures (`42501` / RLS denial) to HTTP `403` (not `500`) while keeping non-permission DB errors as `500`. Ref commit on `main`: `23946e0` (2026-04-10).
 
 ### E2E Verification: Full invite flow confirmed in production (2026-04-09)
 Live end-to-end test run on https://oclabs.space confirmed the complete invite flow works correctly:

@@ -43,7 +43,7 @@ Before submitting, guide the user through a short vetting conversation. Ask one 
 5. **Skills likely needed**: Tags such as frontend, backend/integrations, AI/LLM, data/analytics, product/design, governance/workflow (optional but helpful).
 6. **Any supporting links**: GitHub repos, Notion docs, or other context (all optional).
 
-Once you have a title, summary, problem statement, and the user is satisfied, call the create_project tool to submit. The status should always be 'Idea' for submitted ideas. After submission, tell the user: "Your idea has been submitted for review! The OC Labs team will take a look and reach out. You can [view your submission](/projects/{id}) on the board in the meantime."
+Once you have a title, summary, problem statement, and the user is satisfied, call the create_project tool to submit. The status should always be 'Idea' for submitted ideas. After submission, tell the user: "Your idea has been submitted for review! A power user will vet it before it's published to Discover. You can [view your submission](/projects/{id}) in the meantime."
 
 GUARDRAILS — when these topics come up, respond with the exact guidance below and return to idea submission:
 - Questions about an existing project → "To work with that project, head to its project page. I'm here to help you submit a new idea."
@@ -93,14 +93,20 @@ interface History {
 async function createProject(
   input: Record<string, unknown>,
   userId: string,
-  userEmail: string
+  userEmail: string,
+  powerUser: boolean
 ): Promise<{ id: string; title: string } | { error: string }> {
   const title = typeof input.title === 'string' ? input.title.trim() : ''
   if (!title) return { error: 'title is required' }
 
-  const status: ProjectStatus = VALID_STATUSES.includes(input.status as ProjectStatus)
-    ? (input.status as ProjectStatus)
+  const status: ProjectStatus = powerUser
+    ? (
+      VALID_STATUSES.includes(input.status as ProjectStatus)
+        ? (input.status as ProjectStatus)
+        : 'Idea'
+    )
     : 'Idea'
+  const submissionStatus = powerUser ? 'approved' : 'pending_review'
 
   const { data: project, error } = await supabaseAdmin
     .from('projects')
@@ -108,6 +114,7 @@ async function createProject(
       title,
       summary: typeof input.summary === 'string' ? input.summary : null,
       status,
+      submission_status: submissionStatus,
       owner_id: userId,
       skills_needed: Array.isArray(input.skills_needed) ? input.skills_needed : [],
       github_repos: Array.isArray(input.github_repos) ? input.github_repos : [],
@@ -126,19 +133,21 @@ async function createProject(
     role: 'owner',
   })
 
-  notifyNewProject(project.id, project.title, userEmail).catch(() => {})
+  if (submissionStatus === 'approved') {
+    notifyNewProject(project.id, project.title, userEmail).catch(() => {})
 
-  if (
-    process.env.JIRA_BASE_URL &&
-    process.env.JIRA_EMAIL &&
-    process.env.JIRA_API_TOKEN &&
-    process.env.JIRA_PROJECT_KEY
-  ) {
-    createEpic(project.title)
-      .then((epicKey) =>
-        supabaseAdmin.from('projects').update({ jira_epic_key: epicKey }).eq('id', project.id)
-      )
-      .catch(() => {})
+    if (
+      process.env.JIRA_BASE_URL &&
+      process.env.JIRA_EMAIL &&
+      process.env.JIRA_API_TOKEN &&
+      process.env.JIRA_PROJECT_KEY
+    ) {
+      createEpic(project.title)
+        .then((epicKey) =>
+          supabaseAdmin.from('projects').update({ jira_epic_key: epicKey }).eq('id', project.id)
+        )
+        .catch(() => {})
+    }
   }
 
   return { id: project.id, title: project.title }
@@ -154,7 +163,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   const authedUser = user
 
   const platformRole = await getPlatformRole(supabase, authedUser.id)
-  const systemPrompt = isPowerUser(platformRole) ? POWER_USER_SYSTEM_PROMPT : BASIC_USER_SYSTEM_PROMPT
+  const powerUser = isPowerUser(platformRole)
+  const systemPrompt = powerUser ? POWER_USER_SYSTEM_PROMPT : BASIC_USER_SYSTEM_PROMPT
 
   let body: { message?: unknown; history?: unknown }
   try {
@@ -220,7 +230,8 @@ export async function POST(req: NextRequest): Promise<Response> {
           result = await createProject(
             toolUseBlock.input as Record<string, unknown>,
             authedUser.id,
-            authedUser.email ?? 'Unknown'
+            authedUser.email ?? 'Unknown',
+            powerUser
           )
         }
 

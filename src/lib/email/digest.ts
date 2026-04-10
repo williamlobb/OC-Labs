@@ -76,6 +76,7 @@ export async function sendWeeklyDigest(): Promise<{ sent: number; errors: number
   const { data: projects } = await supabaseAdmin
     .from('projects')
     .select('id, title, summary, vote_count, brand')
+    .eq('submission_status', 'approved')
     .gte('updated_at', sevenDaysAgo)
     .order('vote_count', { ascending: false })
     .limit(5)
@@ -114,4 +115,3 @@ export async function sendWeeklyDigest(): Promise<{ sent: number; errors: number
 
   return { sent, errors }
 }
-

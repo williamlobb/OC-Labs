@@ -1,6 +1,7 @@
 // src/types/index.ts
 
 export type ProjectStatus = 'Idea' | 'In progress' | 'Needs help' | 'Paused' | 'Shipped'
+export type ProjectSubmissionStatus = 'pending_review' | 'approved' | 'rejected'
 export type MemberRole = 'owner' | 'contributor' | 'interested' | 'observer' | 'tech_lead'
 export type PlatformRole = 'user' | 'power_user'
 
@@ -48,6 +49,7 @@ export interface Project {
   summary?: string
   description?: string
   status: ProjectStatus
+  submission_status?: ProjectSubmissionStatus
   brand?: string
   owner_id?: string
   github_repos: string[]

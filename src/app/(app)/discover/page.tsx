@@ -18,6 +18,7 @@ export default async function DiscoverPage() {
   const { data: projects } = await supabase
     .from('projects')
     .select('*, users!projects_owner_id_fkey(name)')
+    .eq('submission_status', 'approved')
     .order('vote_count', { ascending: false })
 
   // Fetch current user's votes and memberships

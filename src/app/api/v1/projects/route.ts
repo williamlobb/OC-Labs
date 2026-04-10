@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { notifyNewProject } from '@/lib/notifications/slack-events'
 import { createEpic } from '@/lib/jira/client'
-import { canCreateProject } from '@/lib/auth/permissions'
+import { canCreateProject, getPlatformRole, isPowerUser } from '@/lib/auth/permissions'
 import type { ProjectStatus } from '@/types'
 
 const VALID_STATUSES: ProjectStatus[] = ['Idea', 'In progress', 'Needs help', 'Paused', 'Shipped']
@@ -20,6 +20,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+  const role = await getPlatformRole(supabase, user.id)
+  const powerUser = isPowerUser(role)
 
   let body: Record<string, unknown>
   try {
@@ -33,10 +35,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'title is required' }, { status: 400 })
   }
 
-  const status: ProjectStatus =
-    VALID_STATUSES.includes(body.status as ProjectStatus)
-      ? (body.status as ProjectStatus)
-      : 'Idea'
+  const status: ProjectStatus = powerUser
+    ? (
+      VALID_STATUSES.includes(body.status as ProjectStatus)
+        ? (body.status as ProjectStatus)
+        : 'Idea'
+    )
+    : 'Idea'
+
+  const submissionStatus = powerUser ? 'approved' : 'pending_review'
 
   const { data: project, error } = await supabase
     .from('projects')
@@ -44,6 +51,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       title,
       summary: typeof body.summary === 'string' ? body.summary : null,
       status,
+      submission_status: submissionStatus,
       owner_id: user.id,
       skills_needed: Array.isArray(body.skills_needed) ? body.skills_needed : [],
       github_repos: Array.isArray(body.github_repos) ? body.github_repos : [],
@@ -72,25 +80,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .eq('id', user.id)
     .single()
 
-  // Notify Slack — fire and forget
-  notifyNewProject(
-    project.id,
-    project.title,
-    ownerProfile?.name ?? user.email ?? 'Unknown'
-  ).catch((err) => console.error('Slack notify failed:', err))
+  if (submissionStatus === 'approved') {
+    // Notify Slack — fire and forget
+    notifyNewProject(
+      project.id,
+      project.title,
+      ownerProfile?.name ?? user.email ?? 'Unknown'
+    ).catch((err) => console.error('Slack notify failed:', err))
 
-  // Create Jira Epic — fire and forget, never fail project creation.
-  // Uses supabaseAdmin for the follow-up UPDATE to avoid cookie-context
-  // issues inside the async callback.
-  if (process.env.JIRA_BASE_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN && process.env.JIRA_PROJECT_KEY) {
-    createEpic(project.title)
-      .then((epicKey) =>
-        supabaseAdmin
-          .from('projects')
-          .update({ jira_epic_key: epicKey })
-          .eq('id', project.id)
-      )
-      .catch((err) => console.error('Jira create epic failed:', err))
+    // Create Jira Epic — fire and forget, never fail project creation.
+    // Uses supabaseAdmin for the follow-up UPDATE to avoid cookie-context
+    // issues inside the async callback.
+    if (process.env.JIRA_BASE_URL && process.env.JIRA_EMAIL && process.env.JIRA_API_TOKEN && process.env.JIRA_PROJECT_KEY) {
+      createEpic(project.title)
+        .then((epicKey) =>
+          supabaseAdmin
+            .from('projects')
+            .update({ jira_epic_key: epicKey })
+            .eq('id', project.id)
+        )
+        .catch((err) => console.error('Jira create epic failed:', err))
+    }
   }
 
   return NextResponse.json(project, { status: 201 })

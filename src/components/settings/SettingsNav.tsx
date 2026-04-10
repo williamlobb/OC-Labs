@@ -11,6 +11,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { label: 'Idea Submissions', href: '/settings/submissions', powerUserOnly: true },
   { label: 'Integrations', href: '/settings/integrations', powerUserOnly: true },
   { label: 'Roles', href: '/settings/roles', powerUserOnly: true },
   { label: 'Project Assignments', href: '/settings/project-assignments', powerUserOnly: true },
