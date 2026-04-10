@@ -208,15 +208,15 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
             onClick={handleResetSession}
             disabled={streaming || messages.length === 0}
             className={cn(
-              'absolute bottom-2 left-2 inline-flex h-8 items-center rounded-lg border px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60',
+              'absolute bottom-2 right-12 inline-flex h-8 items-center rounded-lg border px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60',
               (streaming || messages.length === 0)
                 ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
                 : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-700'
             )}
-            aria-label="Start a new chat session"
-            title="Start a new chat session"
+            aria-label="Start a new session"
+            title="Start a new session"
           >
-            New chat
+            New session
           </button>
           <textarea
             ref={textareaRef}
@@ -226,7 +226,7 @@ export function ProjectChat({ projectId, initialMessages, onMessagesChange }: Pr
             placeholder="Ask about this project…"
             rows={3}
             disabled={streaming}
-            className="flex-1 resize-none bg-transparent px-3 py-2.5 pl-28 pr-12 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
+            className="flex-1 resize-none bg-transparent px-3 py-2.5 pr-36 text-sm text-zinc-900 placeholder-zinc-400 focus:outline-none disabled:opacity-60 dark:text-zinc-100"
           />
           <button
             onClick={handleSend}
