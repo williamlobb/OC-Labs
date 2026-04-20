@@ -215,7 +215,7 @@ export function TaskCard({
             <button
               onClick={() => onStatusChange(task.id, task.status === 'blocked' ? 'todo' : 'blocked')}
               className={cn(
-                'rounded-full px-2 py-0.5 text-xs transition-colors',
+                'rounded-full px-2 py-0.5 text-xs transition-colors cursor-pointer',
                 task.status === 'blocked'
                   ? 'bg-red-100 text-red-700'
                   : 'text-zinc-400 hover:text-zinc-600'
@@ -240,7 +240,7 @@ export function TaskCard({
             <button
               onClick={() => onAgentToggle(task.id, !task.assigned_to_agent)}
               className={cn(
-                'rounded-full px-2 py-0.5 text-xs transition-colors',
+                'rounded-full px-2 py-0.5 text-xs transition-colors cursor-pointer',
                 task.assigned_to_agent
                   ? 'bg-purple-100 text-purple-700'
                   : 'text-zinc-400 hover:text-zinc-600'

@@ -35,7 +35,7 @@ export function ProjectTabs({ projectId, canViewHandRaises }: ProjectTabsProps) 
             key={tab.href}
             href={href}
             className={cn(
-              'px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px',
+              'px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-1 rounded-t-md',
               isActive
                 ? 'border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100'
                 : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'

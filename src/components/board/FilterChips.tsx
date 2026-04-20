@@ -16,7 +16,7 @@ export function FilterChips({ selected, onChange }: FilterChipsProps) {
       <button
         onClick={() => onChange(null)}
         className={cn(
-          'rounded-full px-3 py-1 text-sm font-medium transition-colors',
+          'rounded-full px-3 py-1 text-sm font-medium transition-colors active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-1 cursor-pointer',
           selected === null
             ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
             : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
@@ -29,7 +29,7 @@ export function FilterChips({ selected, onChange }: FilterChipsProps) {
           key={status}
           onClick={() => onChange(status)}
           className={cn(
-            'rounded-full px-3 py-1 text-sm font-medium transition-colors',
+            'rounded-full px-3 py-1 text-sm font-medium transition-colors active:scale-95 focus:outline-none focus:ring-2 focus:ring-zinc-400 focus:ring-offset-1 cursor-pointer',
             selected === status
               ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'

@@ -11,23 +11,13 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createServerSupabaseClient()
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const [{ data: profile }, { data: skills }, { data: memberships }] = await Promise.all([
+    supabase.from('users').select('*').eq('id', id).single(),
+    supabase.from('user_skills').select('skill').eq('user_id', id),
+    supabase.from('project_members').select('project_id, role, projects(id, title, status, brand)').eq('user_id', id),
+  ])
 
   if (!profile) notFound()
-
-  const { data: skills } = await supabase
-    .from('user_skills')
-    .select('skill')
-    .eq('user_id', id)
-
-  const { data: memberships } = await supabase
-    .from('project_members')
-    .select('project_id, role, projects(id, title, status, brand)')
-    .eq('user_id', id)
 
   type ProjectRecord = { id: string; title: string; status: ProjectStatus; brand: string }
   type MembershipRow = {

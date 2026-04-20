@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils/cn'
 
@@ -12,6 +12,7 @@ interface PostUpdateFormProps {
 
 export function PostUpdateForm({ projectId, initialBody = '', autoFocus = false }: PostUpdateFormProps) {
   const router = useRouter()
+  const [, startTransition] = useTransition()
   const [body, setBody] = useState(initialBody)
   const [milestone, setMilestone] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -54,7 +55,7 @@ export function PostUpdateForm({ projectId, initialBody = '', autoFocus = false 
       setBody('')
       setMilestone(false)
       setSuccess('Update posted.')
-      router.refresh()
+      startTransition(() => { router.refresh() })
     } catch {
       setError('Network error. Please try again.')
     } finally {

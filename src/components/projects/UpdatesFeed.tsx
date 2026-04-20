@@ -192,7 +192,7 @@ export function UpdatesFeed({ projectId, currentUserId, updates }: UpdatesFeedPr
                       <button
                         type="button"
                         onClick={() => startEditing(update)}
-                        className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                        className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 rounded px-1.5 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       >
                         Edit
                       </button>
@@ -201,7 +201,7 @@ export function UpdatesFeed({ projectId, currentUserId, updates }: UpdatesFeedPr
                         onClick={() => void handleDelete(update)}
                         disabled={isDeleting}
                         className={cn(
-                          'text-xs text-zinc-400 hover:text-red-600',
+                          'text-xs text-zinc-400 hover:text-red-600 rounded px-1.5 py-0.5 hover:bg-red-50 dark:hover:bg-red-950 transition-colors cursor-pointer',
                           isDeleting && 'cursor-not-allowed opacity-60'
                         )}
                       >

@@ -124,7 +124,7 @@ export function ProjectCard(props: ProjectCardViewProps) {
               aria-label="Vote"
               onClick={(e) => { e.stopPropagation(); onVote() }}
               className={cn(
-                'flex items-center gap-1 text-sm transition-colors',
+                'flex items-center gap-1 text-sm transition-colors cursor-pointer',
                 hasVoted ? 'font-semibold text-blue-600' : 'text-zinc-500 hover:text-zinc-700'
               )}
             >
@@ -156,8 +156,8 @@ export function ProjectCard(props: ProjectCardViewProps) {
                 isJoinDisabled
                   ? 'cursor-default bg-blue-100 text-blue-700'
                   : needsHelp
-                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                    : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                    ? 'bg-red-100 text-red-700 hover:bg-red-200 cursor-pointer'
+                    : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 cursor-pointer'
               )}
             >
               {joinButtonLabel}

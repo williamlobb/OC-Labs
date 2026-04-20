@@ -9,9 +9,11 @@ export default async function NewProjectPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const allowed = await canCreateProject(supabase, user.id)
+  const [allowed, platformRole] = await Promise.all([
+    canCreateProject(supabase, user.id),
+    getPlatformRole(supabase, user.id),
+  ])
   if (!allowed) redirect('/discover')
-  const platformRole = await getPlatformRole(supabase, user.id)
   const powerUser = isPowerUser(platformRole)
 
   return (

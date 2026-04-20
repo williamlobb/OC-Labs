@@ -10,23 +10,13 @@ export default async function MyProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, { data: skills }, { data: memberships }] = await Promise.all([
+    supabase.from('users').select('*').eq('id', user.id).single(),
+    supabase.from('user_skills').select('skill').eq('user_id', user.id),
+    supabase.from('project_members').select('project_id, role, projects(id, title, status, brand)').eq('user_id', user.id),
+  ])
 
   if (!profile) redirect('/login')
-
-  const { data: skills } = await supabase
-    .from('user_skills')
-    .select('skill')
-    .eq('user_id', user.id)
-
-  const { data: memberships } = await supabase
-    .from('project_members')
-    .select('project_id, role, projects(id, title, status, brand)')
-    .eq('user_id', user.id)
 
   type ProjectRecord = { id: string; title: string; status: ProjectStatus; brand: string }
   type MembershipRow = {

@@ -32,6 +32,7 @@ export function FilterableBoard({
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | null>(null)
   const [page, setPage] = useState(1)
+  const [localVotes, setLocalVotes] = useState<Record<string, { hasVoted: boolean; voteCount: number }>>({})
   const [localRequestedByProject, setLocalRequestedByProject] = useState<Record<string, true>>({})
   const [localJoinedByProject, setLocalJoinedByProject] = useState<Record<string, true>>({})
   const [joinPendingByProject, setJoinPendingByProject] = useState<Record<string, boolean>>({})
@@ -65,6 +66,16 @@ export function FilterableBoard({
     setJoinPendingByProject({})
     setJoinErrorByProject({})
   }, [requestedProjectIds, joinedProjectIds])
+
+  const hasVotedMap = useMemo(
+    () => Object.fromEntries(votedProjectIds.map((id) => [id, true])) as Record<string, boolean>,
+    [votedProjectIds]
+  )
+
+  const voteCountMap = useMemo(
+    () => Object.fromEntries(projects.map((p) => [p.id, p.vote_count])) as Record<string, number>,
+    [projects]
+  )
 
   const filtered = useMemo(() => {
     let result = projects
@@ -120,16 +131,44 @@ export function FilterableBoard({
                 name: member.name,
                 profilePhotoUrl: member.profile_photo_url ?? null,
               }))}
-              voteCount={project.vote_count}
-              hasVoted={votedProjectIds.includes(project.id)}
+              voteCount={localVotes[project.id]?.voteCount ?? project.vote_count}
+              hasVoted={localVotes[project.id]?.hasVoted ?? hasVotedMap[project.id] ?? false}
               hasJoined={joinedProjectIds.includes(project.id) || !!localJoinedByProject[project.id]}
               hasRaisedHand={requestedProjectIds.includes(project.id) || !!localRequestedByProject[project.id]}
               joinPending={!!joinPendingByProject[project.id]}
               joinError={joinErrorByProject[project.id] ?? null}
               needsHelp={project.needs_help}
               onVote={async () => {
-                await fetch(`/api/v1/projects/${project.id}/vote`, { method: 'POST' })
-                router.refresh()
+                const projectId = project.id
+                const currentVoted = localVotes[projectId]?.hasVoted ?? hasVotedMap[projectId] ?? false
+                const currentCount = localVotes[projectId]?.voteCount ?? voteCountMap[projectId] ?? 0
+                setLocalVotes(prev => ({
+                  ...prev,
+                  [projectId]: {
+                    hasVoted: !currentVoted,
+                    voteCount: currentVoted ? currentCount - 1 : currentCount + 1,
+                  },
+                }))
+                try {
+                  const res = await fetch(`/api/v1/projects/${projectId}/vote`, { method: 'POST' })
+                  const data = (await res.json().catch(() => null)) as { hasVoted?: boolean; voteCount?: number } | null
+                  if (res.ok && data?.hasVoted !== undefined && data?.voteCount !== undefined) {
+                    setLocalVotes(prev => ({
+                      ...prev,
+                      [projectId]: { hasVoted: data.hasVoted!, voteCount: data.voteCount! },
+                    }))
+                  } else {
+                    setLocalVotes(prev => ({
+                      ...prev,
+                      [projectId]: { hasVoted: currentVoted, voteCount: currentCount },
+                    }))
+                  }
+                } catch {
+                  setLocalVotes(prev => ({
+                    ...prev,
+                    [projectId]: { hasVoted: currentVoted, voteCount: currentCount },
+                  }))
+                }
               }}
               onJoin={async () => {
                 if (
@@ -175,8 +214,6 @@ export function FilterableBoard({
                   ) {
                     setLocalJoinedByProject((prev) => ({ ...prev, [project.id]: true }))
                   }
-
-                  router.refresh()
                 } catch {
                   setJoinErrorByProject((prev) => ({
                     ...prev,

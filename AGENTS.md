@@ -74,7 +74,7 @@ Create `.env.local` from `.env.local.example` before running `npm run dev`.
 ```
 src/app/
   (auth)/          # Login page, OAuth callback — public routes
-  (board)/         # Main board — requires auth
+  (app)/           # Main board — requires auth
   api/v1/          # REST API route handlers
 ```
 
