@@ -32,7 +32,6 @@ function statusVariant(status: string | null): 'blue' | 'amber' | 'red' | 'defau
 export default function ProjectAssignmentsPanel({ projects }: Props) {
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>(undefined)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [platformDialogOpen, setPlatformDialogOpen] = useState(false)
 
   function openProjectDialog(projectId: string) {
     setActiveProjectId(projectId)
@@ -46,15 +45,6 @@ export default function ProjectAssignmentsPanel({ projects }: Props) {
 
   return (
     <section className="space-y-4">
-      <div className="flex justify-end">
-        <button
-          onClick={() => setPlatformDialogOpen(true)}
-          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
-        >
-          Invite Platform Role
-        </button>
-      </div>
-
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white divide-y divide-zinc-100">
         {projects.map((project) => (
           <div
@@ -86,11 +76,6 @@ export default function ProjectAssignmentsPanel({ projects }: Props) {
         isOpen={dialogOpen}
         onClose={closeProjectDialog}
         projectId={activeProjectId}
-      />
-
-      <InviteDialog
-        isOpen={platformDialogOpen}
-        onClose={() => setPlatformDialogOpen(false)}
       />
     </section>
   )

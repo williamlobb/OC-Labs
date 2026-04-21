@@ -10,6 +10,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
 
   const role = await getPlatformRole(supabase, user.id)
   const powerUser = isPowerUser(role)
+  if (!powerUser) redirect('/login')
 
   return (
     <div className="flex gap-10">

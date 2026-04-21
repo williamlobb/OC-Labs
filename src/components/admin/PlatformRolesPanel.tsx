@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
+import InviteDialog from './InviteDialog'
 
 interface User {
   id: string
@@ -21,6 +22,7 @@ export default function PlatformRolesPanel({ users }: Props) {
   const router = useRouter()
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [errorId, setErrorId] = useState<string | null>(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   async function handleToggleRole(user: User) {
     const newRole = user.platform_role === 'power_user' ? 'user' : 'power_user'
@@ -48,6 +50,18 @@ export default function PlatformRolesPanel({ users }: Props) {
   }
 
   return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          onClick={() => setInviteOpen(true)}
+          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+        >
+          Invite User
+        </button>
+      </div>
+
+      <InviteDialog isOpen={inviteOpen} onClose={() => setInviteOpen(false)} />
+
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
       <table className="w-full text-sm">
         <thead>
@@ -109,6 +123,7 @@ export default function PlatformRolesPanel({ users }: Props) {
           )}
         </tbody>
       </table>
+    </div>
     </div>
   )
 }

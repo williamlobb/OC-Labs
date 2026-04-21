@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Integrations', href: '/settings/integrations', powerUserOnly: true },
   { label: 'Roles', href: '/settings/roles', powerUserOnly: true },
   { label: 'Project Assignments', href: '/settings/project-assignments', powerUserOnly: true },
-  { label: 'API Keys', href: '/settings/api-keys', powerUserOnly: false },
+  { label: 'API Keys', href: '/settings/api-keys', powerUserOnly: true },
 ]
 
 interface Props {
